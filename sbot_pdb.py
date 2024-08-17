@@ -74,7 +74,13 @@ class FileWrapper(object):
 
     def write(self, line):
         '''Write line to client. Fix any line endings.'''
+
+        print('---1', line.replace('\r', 'CR').replace('\n', 'NL'))
+        
         line = self._nl_rex.sub('\r\n', line)
+
+        print('---2', line.replace('\r', 'CR').replace('\n', 'NL'))
+
 
         # Colorize?
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
@@ -141,5 +147,8 @@ class StPdb(Pdb):
 #-----------------------------------------------------------------------------------
 def set_trace():
     '''Opens a remote PDB using import stpdb; stpdb.set_trace() syntax.'''
+    # print('--- 10')
     rdb = StPdb()
+    # print('--- 20')
     rdb.set_trace(frame=sys._getframe().f_back)
+    # print('--- 30')
