@@ -1,0 +1,16 @@
+{
+    // Number of spaces for a tab.
+    // "tab_size": 4,
+
+    // TCP host - usually localhost.
+    "host": "127.0.0.1",
+
+    // TCP port in the range 49152 to 65535
+    "port": 4444,
+
+    // Server provides ansi color.
+    "use_ansi_color": true,
+
+    // Print debug statements to console.
+    "debug": true
+}
