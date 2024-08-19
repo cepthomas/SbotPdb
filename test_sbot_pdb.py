@@ -10,6 +10,26 @@ from . import sbot_pdb
 # For reload scenario.
 importlib.reload(sbot_pdb)
 
+# TODO1 get this running.
+
+
+# elif what == 'stpdb':
+#     # run: "C:\Program Files\PuTTY\kitty-0.76.1.13.exe" -load "sbot_dev"
+#     # make it easier to run and Close+restart.
+#     # https://the.earth.li/~sgtatham/putty/0.81/htmldoc/Chapter3.html#using-cmdline
+#     # https://www.9bis.net/kitty/#!pages/CommandLine.md
+
+#     # Unhandled exception BdbQuit when q(uit) not c(ont). https://stackoverflow.com/a/34936583
+
+#     from . import stpdb
+#     try:
+#         # stpdb.StPdb()  # shorter
+#         stpdb.set_trace()
+#         # stpdb.StPdb('127.0.0.1', 4444).set_trace()
+#     except Exception as e:
+#         dir(e)
+#         sc.error(f'StPdb exception: {e}')
+
 
 #-----------------------------------------------------------------------------------
 class SbotPdbTestCommand(sublime_plugin.TextCommand):
