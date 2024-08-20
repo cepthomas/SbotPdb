@@ -1,21 +1,105 @@
-﻿
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
+using System.IO;
+
 
 namespace SbotPdbClient
 {
     internal class App
     {
+        string? Host;
+        int? Port;
+        int? Timeout;
+        bool? UseAnsiColor;
+        bool? Debug;
+
         public void Go()
         {
             Console.WriteLine("Hello, World!");
 
-            DoColor();
+            var cmd = Console.ReadLine();
 
+            switch (cmd)
+            {
+                case "col":
+                    DoColor();
+                    break;
 
+                case "cfg":
+                    GetConfig();
+                    break;
+
+                case "con":
+                    Connect();
+                    break;
+
+                default:
+                    Console.WriteLine("Oops try again");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <exception cref="ArgumentException"></exception>
+        public void GetConfig()
+        {
+            var cfg1 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\SbotPdb\SbotPdb.sublime-settings");
+            var cfg2 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\User\SbotPdb.sublime-settings");
+
+            // Overlay default and user options.
+            Parse(cfg1);
+            Parse(cfg2);
+
+            void Parse(string fn)
+            {
+                foreach (string l in File.ReadAllLines(fn))
+                {
+                    var s = l.Trim();
+
+                    if (!s.StartsWith("\""))
+                    {
+                        continue;
+                    }
+
+                    s = s.Replace("\"", "").Replace(",", "");
+
+                    var parts = s.Split(new string[] { ":" }, StringSplitOptions.TrimEntries);
+                    var name = parts[0];
+                    var val = parts[1].Trim();
+
+                    switch (name)
+                    {
+                        case "host":
+                            Host = val;
+                            break;
+                        case "port":
+                            Port = int.Parse(val);
+                            break;
+                        case "timeout":
+                            Timeout = int.Parse(val);
+                            break;
+                        case "use_ansi_color":
+                            UseAnsiColor = bool.Parse(val);
+                            break;
+                        case "debug":
+                            Debug = bool.Parse(val);
+                            break;
+                        default:
+                            throw new ArgumentException(name);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void Connect()
+        {
             //https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/sockets/tcp-classes#create-a-tcpclient
 
             var ipEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 4444);
@@ -24,7 +108,6 @@ namespace SbotPdbClient
 
             client.Connect(ipEndPoint);
 
-
             using NetworkStream stream = client.GetStream();
 
             var buffer = new byte[1_024];
@@ -32,36 +115,8 @@ namespace SbotPdbClient
 
             var message = Encoding.UTF8.GetString(buffer, 0, received);
             Console.WriteLine($"Message received: \"{message}\"");
-            // Sample output:
-            //     Message received: "📅 8/22/2022 9:07:17 AM 🕛"
-
-
 
         }
-
-
-        public void DoColor()
-        {
-            string NL          = Environment.NewLine; // shortcut
-            string NORMAL      =  "\x1b[39m";
-            string RED         =  "\x1b[91m";
-            string GREEN       =  "\x1b[92m";
-            string YELLOW      =  "\x1b[93m";
-            string BLUE        =  "\x1b[94m";
-            string MAGENTA     =  "\x1b[95m";
-            string CYAN        =  "\x1b[96m";
-            string GREY        =  "\x1b[97m";
-            string BOLD        =  "\x1b[1m";
-            string NOBOLD      =  "\x1b[22m";
-            string UNDERLINE   =  "\x1b[4m";
-            string NOUNDERLINE =  "\x1b[24m";
-            string REVERSE     =  "\x1b[7m";
-            string NOREVERSE   =  "\x1b[27m";
-
-            Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
-            Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
-        }        
-
 
         //void other()
         //{
@@ -117,5 +172,29 @@ namespace SbotPdbClient
         //    }
         //}
 
+        /// <summary>
+        /// 
+        /// </summary>
+        public void DoColor()
+        {
+            string NL = Environment.NewLine; // shortcut
+            string NORMAL = "\x1b[39m";
+            string RED = "\x1b[91m";
+            string GREEN = "\x1b[92m";
+            string YELLOW = "\x1b[93m";
+            string BLUE = "\x1b[94m";
+            string MAGENTA = "\x1b[95m";
+            string CYAN = "\x1b[96m";
+            string GREY = "\x1b[97m";
+            string BOLD = "\x1b[1m";
+            string NOBOLD = "\x1b[22m";
+            string UNDERLINE = "\x1b[4m";
+            string NOUNDERLINE = "\x1b[24m";
+            string REVERSE = "\x1b[7m";
+            string NOREVERSE = "\x1b[27m";
+
+            Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
+            Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
+        }
     }
 }

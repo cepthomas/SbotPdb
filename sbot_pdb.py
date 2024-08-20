@@ -59,21 +59,19 @@ class FileWrapper(object):
 
     def read(self, size=1):
         s = self.stream.read(size)
-        # print(f'read() {s}')
         return s
 
     def readline(self, size=1):
         '''Seems to be the only one used.'''
         s = self.stream.readline()
-        # print(f'readline() {s}')
         # TODOB first line is always garbage.
+        # print(f'readline() {s}')
         # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
         self.last_cmd = s
         return self.last_cmd
 
     def readlines(self, hint=1):
         s = self.stream.readlines(hint)
-        # print(f'readlines() {s}')
         return s
 
     def __iter__(self):
@@ -180,7 +178,7 @@ class SbotPdb(pdb.Pdb):
             super().set_trace(frame)  # This blocks until user says done.
         except IOError as e:
             if e.errno == errno.ECONNRESET:
-                sc.info('SbotPdb lient closed connection.')
+                sc.info('SbotPdb lient closed connection.')  # TODO could try to listen again?
                 self.do_quit()
             else:
                 self.do_error(e)
