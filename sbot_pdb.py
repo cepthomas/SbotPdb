@@ -10,8 +10,6 @@ import pdb
 from . import sbot_common as sc
 
 
-# print(f'>>> (re)load {__name__}')
-
 SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
 
 ANSI_GRAY   = '\033[90m'
@@ -27,7 +25,16 @@ ANSI_RESET  = '\033[0m'
 EOL = '\r\n'
 
 
-# TODO Unhandled exception BdbQuit when using q(uit) not c(ont). Maybe fix/patch. https://stackoverflow.com/a/34936583:
+#-----------------------------------------------------------------------------------
+def plugin_loaded():
+    '''Called per plugin instance.'''
+    sc.info(f'plugin_loaded() {__package__}')
+
+
+#-----------------------------------------------------------------------------------
+def plugin_unloaded():
+    '''Ditto.'''
+    pass
 
 
 #-----------------------------------------------------------------------------------
@@ -35,19 +42,39 @@ class FileWrapper(object):
     '''Make socket look like a file. Also handles encoding and line endings.'''
     def __init__(self, conn):
         self.conn = conn
+        self.last_cmd = None
         fh = conn.makefile('rw')
         # Return a file object associated with the socket. https://docs.python.org/3.8/library/socket.html
         self.stream = fh
-        self.read = fh.read
-        self.readline = fh.readline
-        self.readlines = fh.readlines
+        # self.read = fh.read
+        # self.readline = fh.readline
+        # self.readlines = fh.readlines
         self.close = fh.close
         self.flush = fh.flush
         self.fileno = fh.fileno
-        # Data.
+        # Private stuff.
         self._nl_rex=re.compile('\r\n')  # Convert all to telnet standard line ending.
         self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
         self._buff = ''
+
+    def read(self, size=1):
+        s = self.stream.read(size)
+        # print(f'read() {s}')
+        return s
+
+    def readline(self, size=1):
+        '''Seems to be the only one used.'''
+        s = self.stream.readline()
+        # print(f'readline() {s}')
+        # TODOB first line is always garbage.
+        # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
+        self.last_cmd = s
+        return self.last_cmd
+
+    def readlines(self, hint=1):
+        s = self.stream.readlines(hint)
+        # print(f'readlines() {s}')
+        return s
 
     def __iter__(self):
         return self.stream.__iter__()
@@ -63,9 +90,8 @@ class FileWrapper(object):
         if '(Pdb)' in line:
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             col = settings.get('use_ansi_color')
-#            self._send(f'=== 24 {self._buff}{EOL}')
             for l in self._buff.splitlines():
-                if col:  # Colorize?
+                if col:  # Colorize? TODO user configurable colors
                     if '->' in l:
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
                     elif '>>' in l:
@@ -146,29 +172,29 @@ class SbotPdb(pdb.Pdb):
             self.do_error(e)
 
     def set_trace(self, frame):
-        # Check good instantiation.
+        # Check foor good instantiation.
         if self.handle is None:
             return
 
         try:
             super().set_trace(frame)  # This blocks until user says done.
         except IOError as e:
-            if e.errno == errno.ECONNRESET:  # Client closed the connection.
-                print(f'--- set_trace() IOError')  # TODO1 reopen/retry?
+            if e.errno == errno.ECONNRESET:
+                sc.info('SbotPdb lient closed connection.')
+                self.do_quit()
             else:
                 self.do_error(e)
         except Exception as e:
             self.do_error(e)
 
     def do_error(self, e):
-        tb = e.__traceback__
-        s = '\n'.join(traceback.format_tb(tb))
-        sc.error(f'{e}\n{s}')
+        sc.error(f'{e}', e.__traceback__)
         if self.handle is not None:
-            self.handle.write_debug(f'Exception! {e}\n{s}')  # TODO1 test
+            self.handle.write_debug(f'Exception! {e}')  # TODO1 test
         self.do_quit()
 
     def do_quit(self, arg=None):
+        sc.info('SbotPdb session quitting.')
         if self.handle is not None:
             self.handle.close()
             self.handle = None

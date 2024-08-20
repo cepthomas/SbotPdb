@@ -5,15 +5,13 @@ import sublime
 import sublime_plugin
 from . import sbot_pdb
 
-# print(f'>>> (re)load {__name__}')
-
-# For reload scenario.
+# Benign reload in case of edited.
 importlib.reload(sbot_pdb)
-
 
 
 #-----------------------------------------------------------------------------------
 class SbotPdbTestCommand(sublime_plugin.TextCommand):
+    '''Execute sbot_pdb command to run the test.'''
     def run(self, edit):
         ret = do_a_suite(number=911, alpha='abcd')
 
@@ -39,7 +37,10 @@ def function_1(a1: int, a2: float):
     cl1 = MyClass('number 1', [45, 78, 23], a1)
     cl2 = MyClass('number 2', [100, 101, 102], a2)
     ret = f'answer is cl1:{cl1.do_something(a1)}...cl2:{cl2.do_something(a2)}'
+
+    # Play with exception handling.
     # ret = f'{cl1.class_boom(a2)}'
+
     return ret
 
 
@@ -57,9 +58,14 @@ def function_boom():
 #----------------------------------------------------------
 def do_a_suite(alpha, number):
 
+    # Breakpoint here. Now step through and examine the code.
     sbot_pdb.set_trace()
 
     ret = function_1(5, 9.126)
+
+    # Play with exception handling.TODO1
     # function_boom()
+
     ret = function_2([33, 'thanks', 3.56], {'aaa': 111, 'bbb': 222, 'ccc': 333})
+
     return ret
