@@ -1,6 +1,7 @@
 {
     // TCP host - usually localhost.
-    "host": "127.0.0.1",
+    "host": "localhost",
+    // "host": "127.0.0.1",
 
     // TCP port in the range 49152 to 65535
     "port": 59120,

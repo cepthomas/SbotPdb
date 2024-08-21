@@ -3,55 +3,119 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.IO;
+using System.Linq;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 
 namespace SbotPdbClient
 {
-    internal class App
+    internal class App : IDisposable
     {
-        string? Host;
-        int? Port;
-        int? Timeout;
-        bool? UseAnsiColor;
-        bool? Debug;
+        #region Server config
+        string _host = "???";
+        int _port = 0;
+        int _timeout = 5; // server listen timeout
+        bool _useAnsiColor = true;
+        bool _debug = true;
+        #endregion
 
+        #region Fields
+        NetworkStream? _stream = null;
+        TcpClient? _client = null;
+        readonly string _eol = "\r\n";
+        readonly ConcurrentQueue<string> _cmdQ = new();
+        #endregion
+
+        /// <summary>
+        /// Run the loop.
+        /// </summary>
         public void Go()
         {
-            Console.WriteLine("Hello, World!");
-
-            var cmd = Console.ReadLine();
-
-            switch (cmd)
+            try
             {
-                case "col":
-                    DoColor();
-                    break;
+                bool run = true;
 
-                case "cfg":
-                    GetConfig();
-                    break;
+                // Run user cli input in a thread.
+                Task.Run(() => {
+                    while (run)
+                    {
+                        _cmdQ.Enqueue(Console.ReadLine()!);
+                    }
+                });
 
-                case "con":
-                    Connect();
-                    break;
+                // Echo anything from server to user.
+                if (_client?.Available > 0)
+                {
+                    var data = new byte[_client.Available];
+                    _stream?.Read(data, 0, data.Length);
+                    string s = Encoding.ASCII.GetString(data, 0, data.Length);
+                    Console.Write(s);
+                }
 
-                default:
-                    Console.WriteLine("Oops try again");
-                    break;
+                // Process any user commands.
+                while (run)
+                {
+                    if (_cmdQ.TryDequeue(out var cliInput))
+                    {
+                        switch (cliInput)
+                        {
+                            case "x":
+                                run = false;
+                                break;
+                            case "":
+                                // idle
+                                break;
+                            case "col":
+                                DoColorTest();
+                                break;
+                            case "cfg":
+                                GetConfig();
+                                break;
+                            default:
+                                // Send any other user input to server.
+                                Debug.WriteLine("Got " + cliInput);
+                                byte[] data = Encoding.ASCII.GetBytes(cliInput + _eol);
+                                _stream?.Write(data, 0, data.Length);
+                                break;
+                        }
+                    }
+
+                    System.Threading.Thread.Sleep(100);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.Write(e.ToString());
             }
         }
 
         /// <summary>
-        /// 
+        /// Say hello to server.
+        /// </summary>
+        public void Connect()
+        {
+            Dispose();
+
+            // Connect.
+            var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
+            _client = new TcpClient(AddressFamily.InterNetwork);
+            _client.Connect(ipEndPoint);
+            _stream = _client.GetStream();
+            _stream.ReadTimeout = 100; // poll
+        }
+
+        /// <summary>
+        /// Hand parse config files. Json parser is too heavy for this app.
         /// </summary>
         /// <exception cref="ArgumentException"></exception>
         public void GetConfig()
         {
-            var cfg1 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\SbotPdb\SbotPdb.sublime-settings");
-            var cfg2 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\User\SbotPdb.sublime-settings");
-
             // Overlay default and user options.
+            var cfg1 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\SbotPdb\SbotPdb.sublime-settings");
             Parse(cfg1);
+            var cfg2 = Environment.ExpandEnvironmentVariables(@"%APPDATA%\Sublime Text\Packages\User\SbotPdb.sublime-settings");
             Parse(cfg2);
 
             void Parse(string fn)
@@ -64,7 +128,6 @@ namespace SbotPdbClient
                     {
                         continue;
                     }
-
                     s = s.Replace("\"", "").Replace(",", "");
 
                     var parts = s.Split(new string[] { ":" }, StringSplitOptions.TrimEntries);
@@ -74,19 +137,19 @@ namespace SbotPdbClient
                     switch (name)
                     {
                         case "host":
-                            Host = val;
+                            _host = val;
                             break;
                         case "port":
-                            Port = int.Parse(val);
+                            _port = int.Parse(val);
                             break;
                         case "timeout":
-                            Timeout = int.Parse(val);
+                            _timeout = int.Parse(val);
                             break;
                         case "use_ansi_color":
-                            UseAnsiColor = bool.Parse(val);
+                            _useAnsiColor = bool.Parse(val);
                             break;
                         case "debug":
-                            Debug = bool.Parse(val);
+                            _debug = bool.Parse(val);
                             break;
                         default:
                             throw new ArgumentException(name);
@@ -96,86 +159,9 @@ namespace SbotPdbClient
         }
 
         /// <summary>
-        /// 
+        /// Test stuff.
         /// </summary>
-        public void Connect()
-        {
-            //https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/sockets/tcp-classes#create-a-tcpclient
-
-            var ipEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 4444);
-
-            using var client = new TcpClient(AddressFamily.InterNetwork);
-
-            client.Connect(ipEndPoint);
-
-            using NetworkStream stream = client.GetStream();
-
-            var buffer = new byte[1_024];
-            int received = stream.Read(buffer);
-
-            var message = Encoding.UTF8.GetString(buffer, 0, received);
-            Console.WriteLine($"Message received: \"{message}\"");
-
-        }
-
-        //void other()
-        //{
-        //    int timeout = _dm.FEConfiguration.OASServerTimeout * 1000; // Convert to milliseconds
-        //    int retries = _dm.FEConfiguration.OASServerRetries;
-
-        //    if (!_shuttingDown)
-        //    {
-        //        using (_udpClient = new UdpClient(clientPort))
-        //        {
-        //            _udpClient.Client.SendTimeout = timeout;
-        //            _udpClient.Client.ReceiveTimeout = timeout;
-
-        //            try
-        //            {
-        //                // set the remote host
-        //                IPAddress serverIp = IPAddress.Parse(_dm.FEConfiguration.OASServerIP);
-        //                int serverPort = _dm.FEConfiguration.OASServerPort;
-        //                _udpClient.Connect(serverIp, serverPort);
-
-        //                _logger.Debug(
-        //                    "SendingOASMessage {0} {1} Length({2}), " +
-        //                    "serverIp({3}), " +
-        //                    "serverPort({4}), clientPort({5}), , clientEndPoint({6}), " +
-        //                    "TimeOut({7}), Retries({8})",
-        //                    args.SendUdpHeader.MsgType, args.SendUdpHeader.SequenceNumber, args.Msg.Length,
-        //                    _dm.FEConfiguration.OASServerIP,
-        //                    _dm.FEConfiguration.OASServerPort, _dm.FEConfiguration.OASLocalPort, _udpClient.Client.LocalEndPoint,
-        //                    timeout, retries);
-
-        //                do
-        //                {
-        //                    _logger.Debug("SendingOASMessage {0} {1} msg({2})",
-        //                        args.SendUdpHeader.MsgType, args.SendUdpHeader.SequenceNumber, args.Msg);
-
-        //                    // Sends message to the host.
-        //                    byte[] sendBytes = Encoding.ASCII.GetBytes(args.Msg);
-        //                    _udpClient.Send(sendBytes, sendBytes.Length);
-
-        //                    reply = UdpReceive(args);
-
-        //                } while ((reply.StatusCode != StatusCode.Ok) && (retries-- > 0));
-        //            }
-        //            catch (Exception e)
-        //            {
-        //                reply.StatusCode = StatusCode.SendFail;
-        //                _logger.ErrorException(string.Format("Exception parsing OAS Server IP ({0})",
-        //                    _dm.FEConfiguration.OASServerIP), e);
-        //            }
-        //            _udpClient.Close(); // close the UDP connection
-        //        } // using
-        //        _udpClient = null; // Feed the garbage collector
-        //    }
-        //}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public void DoColor()
+        public void DoColorTest()
         {
             string NL = Environment.NewLine; // shortcut
             string NORMAL = "\x1b[39m";
@@ -195,6 +181,17 @@ namespace SbotPdbClient
 
             Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
             Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
+        }
+
+        /// <summary>
+        /// Resource management.
+        /// </summary>
+        public void Dispose()
+        {
+            _stream?.Dispose();
+            _stream = null;
+            _client?.Dispose();
+            _client = null;
         }
     }
 }

@@ -21,7 +21,7 @@ ANSI_PURPLE = '\033[95m'
 ANSI_CYAN   = '\033[96m'
 ANSI_RESET  = '\033[0m'
 
-# Standard telnet.
+# Handshake delim.
 EOL = '\r\n'
 
 
@@ -55,7 +55,7 @@ class FileWrapper(object):
         # Private stuff.
         self._nl_rex=re.compile('\r\n')  # Convert all to telnet standard line ending.
         self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
-        self._buff = ''
+        self._send_buff = ''
 
     def read(self, size=1):
         s = self.stream.read(size)
@@ -65,7 +65,7 @@ class FileWrapper(object):
         '''Seems to be the only one used.'''
         s = self.stream.readline()
         # TODOB first line is always garbage.
-        # print(f'readline() {s}')
+        print(f'!!! readline() {s}')
         # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
         self.last_cmd = s
         return self.last_cmd
@@ -88,7 +88,7 @@ class FileWrapper(object):
         if '(Pdb)' in line:
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             col = settings.get('use_ansi_color')
-            for l in self._buff.splitlines():
+            for l in self._send_buff.splitlines():
                 if col:  # Colorize? TODO user configurable colors
                     if '->' in l:
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
@@ -111,10 +111,10 @@ class FileWrapper(object):
             else:  # As is
                 self._send(f'(Pdb) ')
             # Reset.
-            self._buff = ''
+            self._send_buff = ''
         else:
             # Just collect.
-            self._buff += line
+            self._send_buff += line
 
     def writelines(self, lines):
         '''Write all to client.'''
@@ -178,7 +178,7 @@ class SbotPdb(pdb.Pdb):
             super().set_trace(frame)  # This blocks until user says done.
         except IOError as e:
             if e.errno == errno.ECONNRESET:
-                sc.info('SbotPdb lient closed connection.')  # TODO could try to listen again?
+                sc.info('SbotPdb lient closed connection.')  # TODO1 could try to listen again?
                 self.do_quit()
             else:
                 self.do_error(e)
