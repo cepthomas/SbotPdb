@@ -53,7 +53,7 @@ class FileWrapper(object):
         self.flush = fh.flush
         self.fileno = fh.fileno
         # Private stuff.
-        self._nl_rex=re.compile('\r\n')  # Convert all to telnet standard line ending.
+        self._nl_rex=re.compile(EOL)  # Convert all to standard line ending.
         self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
         self._send_buff = ''
 
@@ -62,13 +62,19 @@ class FileWrapper(object):
         return s
 
     def readline(self, size=1):
-        '''Seems to be the only one used.'''
-        s = self.stream.readline()
-        # TODOB first line is always garbage.
-        print(f'!!! readline() {s}')
-        # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
-        self.last_cmd = s
-        return self.last_cmd
+        '''Seems to be the only function used. Capture the last user command.'''
+
+        try:
+
+            s = self.stream.readline()
+            # print(f'!!! readline() {s}')
+            # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
+            self.last_cmd = s
+            return self.last_cmd
+        except Exception as e:
+            return ''
+
+
 
     def readlines(self, hint=1):
         s = self.stream.readlines(hint)
@@ -136,7 +142,7 @@ class FileWrapper(object):
 
 #-----------------------------------------------------------------------------------
 class SbotPdb(pdb.Pdb):
-    '''Run pdb behind a blocking telnet server.'''
+    '''Run pdb behind a blocking tcp server.'''
 
     def __init__(self):
         try:
@@ -152,25 +158,25 @@ class SbotPdb(pdb.Pdb):
                 lsock.settimeout(timeout)  # Seconds.
             lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
             lsock.bind((host, port))
-            sc.info(f'SbotPdb session open at {lsock.getsockname()}, waiting for connection.')
+            sc.info(f'Session open at {lsock.getsockname()}, waiting for connection.')
             lsock.listen(1)
             # blocks until timeout
             conn, address = lsock.accept()
 
             # Connected.
-            sc.info(f'SbotPdb session accepted connection from {repr(address)}.')
+            sc.info(f'Session accepted connection from {repr(address)}.')
             self.handle = FileWrapper(conn)
             super().__init__(completekey='tab', stdin=self.handle, stdout=self.handle)
             SbotPdb.active_instance = self
         except socket.timeout as e:
             # Timeout waiting for a client to connect.
-            sublime.message_dialog('SbotPdb session timed out.')
-            sc.info('SbotPdb session timed out.')
+            sublime.message_dialog('Session timed out.')
+            sc.info('Session timed out.')
         except Exception as e:
             self.do_error(e)
 
     def set_trace(self, frame):
-        # Check foor good instantiation.
+        # Check for good instantiation.
         if self.handle is None:
             return
 
@@ -178,21 +184,21 @@ class SbotPdb(pdb.Pdb):
             super().set_trace(frame)  # This blocks until user says done.
         except IOError as e:
             if e.errno == errno.ECONNRESET:
-                sc.info('SbotPdb lient closed connection.')  # TODO1 could try to listen again?
+                sc.info('Client closed connection.')
                 self.do_quit()
             else:
                 self.do_error(e)
-        except Exception as e:
+        except Exception as e:  # TODO We can't actually do this - exc go to sys.excepthook, maybe that's good enough.
             self.do_error(e)
 
     def do_error(self, e):
         sc.error(f'{e}', e.__traceback__)
         if self.handle is not None:
-            self.handle.write_debug(f'Exception! {e}')  # TODO1 test
+            self.handle.write_debug(f'Exception! {e}')
         self.do_quit()
 
     def do_quit(self, arg=None):
-        sc.info('SbotPdb session quitting.')
+        sc.info('Session quitting.')
         if self.handle is not None:
             self.handle.close()
             self.handle = None

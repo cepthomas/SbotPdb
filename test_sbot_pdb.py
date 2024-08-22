@@ -63,7 +63,7 @@ def do_a_suite(alpha, number):
 
     ret = function_1(5, 9.126)
 
-    # Play with exception handling.TODO1
+    # Play with exception handling.
     # function_boom()
 
     ret = function_2([33, 'thanks', 3.56], {'aaa': 111, 'bbb': 222, 'ccc': 333})
