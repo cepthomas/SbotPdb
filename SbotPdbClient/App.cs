@@ -8,7 +8,6 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 
-// TODO1? shorten filenames: > c:\users\cepth\appdata\roaming\sublime text\packages\sbotpdb\test_sbot_pdb.py(67) do_a_suite()
 
 namespace SbotPdbClient
 {
@@ -48,7 +47,7 @@ namespace SbotPdbClient
                 // Main/forever loop.
                 while (run)
                 {
-                    // Try reconnecting? // TODO1 doesn't detect that server has exited debugger.
+                    // Try reconnecting? // TODO1 doesn't detect that server has exited debugger. Maybe reopen every time?
                     if (_client is null)
                     {
                         Connect();

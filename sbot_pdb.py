@@ -95,7 +95,7 @@ class FileWrapper(object):
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             col = settings.get('use_ansi_color')
             for l in self._send_buff.splitlines():
-                if col:  # Colorize? TODO user configurable colors
+                if col:  # TODO user configurable colors
                     if '->' in l:
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
                     elif '>>' in l:
@@ -188,7 +188,7 @@ class SbotPdb(pdb.Pdb):
                 self.do_quit()
             else:
                 self.do_error(e)
-        except Exception as e:  # TODO We can't actually do this - exc go to sys.excepthook, maybe that's good enough.
+        except Exception as e:  # TODO1 Can't actually do this - exc go to sys.excepthook, maybe that's good enough.
             self.do_error(e)
 
     def do_error(self, e):
