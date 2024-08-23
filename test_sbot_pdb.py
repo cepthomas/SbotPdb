@@ -10,8 +10,8 @@ importlib.reload(sbot_pdb)
 
 
 #-----------------------------------------------------------------------------------
-class SbotPdbTestCommand(sublime_plugin.TextCommand):
-    '''Execute sbot_pdb command to run the test.'''
+class SbotPdbDebugCommand(sublime_plugin.TextCommand):
+
     def run(self, edit):
         ret = do_a_suite(number=911, alpha='abcd')
 
@@ -29,7 +29,8 @@ class MyClass(object):
         return res
 
     def class_boom(self, arg):
-        x = 1 / 0  # boom
+        # Cause unhandled exception.
+        return 1 / 0
 
 
 #----------------------------------------------------------
@@ -51,20 +52,20 @@ def function_2(a_list, a_dict):
 
 #----------------------------------------------------------
 def function_boom():
-    i = 0
-    return 1 / i  # boom
+    # Cause unhandled exception.
+    return 1 / 0
 
 
 #----------------------------------------------------------
 def do_a_suite(alpha, number):
 
-    # Breakpoint here. Now step through and examine the code.
+    # Breakpoint here. Step through and examine the code.
     sbot_pdb.set_trace()
 
     ret = function_1(5, 9.126)
 
-    # Play with exception handling.
-    # function_boom()
+    # Unhandled exception goes to sys.__excepthook__ or sys.excepthook.
+    function_boom()
 
     ret = function_2([33, 'thanks', 3.56], {'aaa': 111, 'bbb': 222, 'ccc': 333})
 

@@ -7,7 +7,7 @@ Sublime Text plugin debugging.
 It's mostly hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
 with some bits of rpdb.py and pdbx.py.
 
-Built for ST4 on Windows and Linux.
+Built for ST4 on Windows and Linux. SbotPdbClient is Windows only.
 
 ## Features
 

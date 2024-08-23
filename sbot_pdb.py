@@ -62,10 +62,8 @@ class FileWrapper(object):
         return s
 
     def readline(self, size=1):
-        '''Seems to be the only function used. Capture the last user command.'''
-
+        '''Seems to be the only read function used. Capture the last user command.'''
         try:
-
             s = self.stream.readline()
             # print(f'!!! readline() {s}')
             # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
@@ -73,8 +71,6 @@ class FileWrapper(object):
             return self.last_cmd
         except Exception as e:
             return ''
-
-
 
     def readlines(self, hint=1):
         s = self.stream.readlines(hint)
@@ -95,19 +91,34 @@ class FileWrapper(object):
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             col = settings.get('use_ansi_color')
             for l in self._send_buff.splitlines():
-                if col:  # TODO user configurable colors
-                    if '->' in l:
+                # print('!!!', l)
+                if col:  # TODO user configurable colors  str.startswith
+                    # if l.startswith('-> '):
+                    if '-> ' in l:
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-                    elif '>>' in l:
+                    elif l.startswith('>> '):
                         self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
                     elif '***' in l:
                         self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
                     elif 'Error:' in l:
                         self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-                    elif '>' in l:
+                    elif l.startswith('> '):
                         self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
-                    else:
+                    else: # verbatim
                         self._send(f'{l}{EOL}')
+
+                    # if '->' in l:
+                    #     self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
+                    # elif '>>' in l:
+                    #     self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
+                    # elif '***' in l:
+                    #     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
+                    # elif 'Error:' in l:
+                    #     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
+                    # elif '>' in l:
+                    #     self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
+                    # else:
+                    #     self._send(f'{l}{EOL}')
                 else:  # As is
                     self._send(f'{l}{EOL}')
 

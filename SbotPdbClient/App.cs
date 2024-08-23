@@ -27,6 +27,14 @@ namespace SbotPdbClient
         readonly ConcurrentQueue<string?> _cmdQ = new();
         #endregion
 
+
+        string _traceFn = @"C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\SbotPdbClient\_trace.txt";
+        void DoTrace(string msg)
+        {
+            //msg = msg.Replace("\n", "_N").Replace("\r", "_R");
+            //File.AppendAllText(_traceFn, msg + Environment.NewLine);
+        }
+
         /// <summary>
         /// Run the loop.
         /// </summary>
@@ -34,9 +42,14 @@ namespace SbotPdbClient
         {
             try
             {
+                Console.Title = "SbotPdb Client";
+                Console.BufferHeight = 300;
+                Console.BufferWidth = 120;
+
                 GetConfig();
 
-                Console.WriteLine($"SbotPdbClient on {_host}:{_port}");
+                Console.Title = $"SbotPdb Client on {_host}:{_port}";
+                Console.WriteLine($"SbotPdb Client on {_host}:{_port}");
                 Console.WriteLine($"Start your plugin code to debug");
 
                 bool run = true;
@@ -47,10 +60,29 @@ namespace SbotPdbClient
                 // Main/forever loop.
                 while (run)
                 {
-                    // Try reconnecting? // TODO1 doesn't detect that server has exited debugger. Maybe reopen every time?
+                    // Try re/connecting? // TODO1 doesn't detect that server has exited debugger. Maybe reopen every time?
                     if (_client is null)
                     {
-                        Connect();
+                        var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
+                        _client = new TcpClient(AddressFamily.InterNetwork);
+
+                        try
+                        {
+                            _client.Connect(ipEndPoint);
+                        }
+                        catch (SocketException e)
+                        {
+                            // Ignore and retry later.
+                            // Maybe should check code. https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
+                            Dispose();
+                        }
+                        catch (Exception e)
+                        {
+                            // Other errors are considered fatal.
+                            Console.Write($"Fatal error:{e}");
+                            Dispose();
+                            run = false;
+                        }
                     }
 
                     // Echo anything from server to user.
@@ -59,6 +91,7 @@ namespace SbotPdbClient
                         var data = new byte[_client.Available];
                         _client.GetStream().Read(data, 0, data.Length);
                         string s = Encoding.ASCII.GetString(data, 0, data.Length);
+                        DoTrace($"INN:{s}");
                         Console.Write(s);
                     }
 
@@ -78,8 +111,10 @@ namespace SbotPdbClient
                             default: // Send any other user input to server.
                                 if (_client is not null)
                                 {
+                                    DoTrace($"OUT:{cliInput}");
                                     byte[] data = Encoding.ASCII.GetBytes(cliInput + _eol);
                                     _client.GetStream().Write(data, 0, data.Length);
+                                    _client.GetStream().Flush();
                                 }
                                 else
                                 {
@@ -95,43 +130,45 @@ namespace SbotPdbClient
             }
             catch (Exception e)
             {
-                Console.Write(e.ToString());
+                // Errors are considered fatal.
+                Console.Write($"Fatal error:{e}");
+                Dispose();
             }
         }
 
-        /// <summary>
-        /// Say hello to server.
-        /// </summary>
-        public void Connect()
-        {
-            Dispose();
+        ///// <summary>
+        ///// Say hello to server.
+        ///// </summary>
+        //public void Connect()
+        //{
+        //    Dispose();
 
-            // Try to connect.
-            var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
-            _client = new TcpClient(AddressFamily.InterNetwork);
+        //    // Try to connect.
+        //    var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
+        //    _client = new TcpClient(AddressFamily.InterNetwork);
 
-            try
-            {
-                _client.Connect(ipEndPoint);
-            }
-            catch (SocketException e)
-            {
-                if (e.SocketErrorCode > 0)
-                {
-                    // Ignore and retry later. Could do smarter processing of errors?
-                    //https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
-                }
-                _client.Dispose();
-                _client = null;
-            }
-            catch (Exception e)
-            {
-                // Other errors are considered fatal.
-                Console.Write(e.ToString());
-                _client.Dispose();
-                _client = null;
-            }
-        }
+        //    try
+        //    {
+        //        _client.Connect(ipEndPoint);
+        //    }
+        //    catch (SocketException e)
+        //    {
+        //        if (e.SocketErrorCode > 0)
+        //        {
+        //            // Ignore and retry later. Could do smarter processing of errors?
+        //            //https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
+        //        }
+        //        _client.Dispose();
+        //        _client = null;
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        // Other errors are considered fatal.
+        //        Console.Write(e.ToString());
+        //        _client.Dispose();
+        //        _client = null;
+        //    }
+        //}
 
         /// <summary>
         /// Hand parse config files. Json parser is too heavy for this app.
@@ -257,8 +294,6 @@ namespace SbotPdbClient
         /// </summary>
         public void Dispose()
         {
-            // _stream?.Dispose();
-            // _stream = null;
             _client?.Dispose();
             _client = null;
         }
