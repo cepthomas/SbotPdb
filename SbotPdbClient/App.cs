@@ -48,8 +48,8 @@ namespace SbotPdbClient
 
                 GetConfig();
 
-                Console.WriteLine($"> SbotPdb Client on {_host}:{_port}");
-                Console.WriteLine($"> Start your plugin code to debug");
+                Console.WriteLine($"! SbotPdb Client started on {_host}:{_port}");
+                Console.WriteLine($"! Run your plugin code to debug");
 
                 bool run = true;
 
@@ -79,7 +79,7 @@ namespace SbotPdbClient
                         catch (Exception e)
                         {
                             // Other errors are considered fatal.
-                            Console.WriteLine($"> Fatal error:{e}");
+                            Console.WriteLine($"! Fatal error:{e}");
                             Reset();
                             run = false;
                         }
@@ -91,7 +91,7 @@ namespace SbotPdbClient
                         var dur = _watch.ElapsedMilliseconds - _sendts;
                         if (dur - LOOP_TIME > SERVER_LOSS_TIME)
                         {
-                            Console.WriteLine("> Server stopped");
+                            Console.WriteLine("! Server stopped");
                             Reset();
                         }
                     }
@@ -133,7 +133,7 @@ namespace SbotPdbClient
                                 }
                                 else
                                 {
-                                    Console.WriteLine("> Can't execute - not connected");
+                                    Console.WriteLine("! Can't execute - not connected");
                                     _sendts = 0;
                                 }
                                 break;
@@ -147,7 +147,7 @@ namespace SbotPdbClient
             catch (Exception e)
             {
                 // Errors are considered fatal.
-                Console.WriteLine($"> Fatal error:{e}");
+                Console.WriteLine($"1 Fatal error:{e}");
             }
             finally
             {
@@ -214,12 +214,14 @@ namespace SbotPdbClient
         /// </summary>
         public void ShortUsage()
         {
-            Console.WriteLine("> Simple help");
+            Console.WriteLine("! Succinct help");
 
             string[] lines =
             [
                 "h(elp)         [command]",
-                "q(uit)",
+                "hh                                           What you see now.",
+                "q(uit)                                       Don't do this.",
+                "x(it)                                        Do this.",
                 "run or restart [args ...]                    Restart the program with 'args'.",
                 "s(tep)                                       Step into function.",
                 "n(ext)                                       Step over function.",
@@ -255,7 +257,7 @@ namespace SbotPdbClient
         /// </summary>
         public void DoColorTest()
         {
-            //string NL = Environment.NewLine; // shortcut
+            string NL = Environment.NewLine; // shortcut
             string NORMAL = "\x1b[39m";
             string RED = "\x1b[91m";
             string GREEN = "\x1b[92m";
