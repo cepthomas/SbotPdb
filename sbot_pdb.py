@@ -53,6 +53,8 @@ class FileWrapper(object):
         self.flush = fh.flush
         self.fileno = fh.fileno
         # Private stuff.
+        settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+        self._col = settings.get('use_ansi_color')
         self._nl_rex=re.compile(EOL)  # Convert all to standard line ending.
         self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
         self._send_buff = ''
@@ -65,8 +67,8 @@ class FileWrapper(object):
         '''Seems to be the only read function used. Capture the last user command.'''
         try:
             s = self.stream.readline()
-            # print(f'!!! readline() {s}')
-            # self.last_cmd = 'p "Try again"' if self.last_cmd is None else s
+            slog = s.replace('\n', '_N').replace('\r', '_R')
+            sc.debug(f'Command:{slog}')
             self.last_cmd = s
             return self.last_cmd
         except Exception as e:
@@ -84,17 +86,17 @@ class FileWrapper(object):
         return self.stream.encoding
 
     def write(self, line):
-        '''Write line to client.'''
-        # pdb writes lines piecemeal but we want proper lines.
+        '''Write pdb output line to client.'''
+        # pdb writes lines piecemeal but we want full proper lines.
         # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
         if '(Pdb)' in line:
-            settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
-            col = settings.get('use_ansi_color')
             for l in self._send_buff.splitlines():
-                # print('!!!', l)
-                if col:  # TODO user configurable colors
-                    # if '-> ' in l: TODO1 for l command
+                sc.debug(f'Response:{l}')
+                if self._col:  # TODO user configurable colors
                     if l.startswith('-> '):
+                        self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
+                    # elif '->\t' in l:
+                    elif ' ->' in l:
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
                     elif l.startswith('>> '):
                         self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
@@ -104,16 +106,12 @@ class FileWrapper(object):
                         self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
                     elif l.startswith('> '):
                         self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
-                    else: # verbatim
+                    else: # default
                         self._send(f'{l}{EOL}')
                 else:  # As is
                     self._send(f'{l}{EOL}')
 
-            # Send prompt.
-            if col:  # Colorize?
-                self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
-            else:  # As is
-                self._send(f'(Pdb) ')
+            self.writePrompt()
             # Reset.
             self._send_buff = ''
         else:
@@ -121,21 +119,22 @@ class FileWrapper(object):
             self._send_buff += line
 
     def writelines(self, lines):
-        '''Write all to client.'''
+        '''Write all lines to client. Seems to be unused.'''
         for line in lines:
             self.write(line)
 
-    def write_debug(self, line):
-        '''Write debug info to client.'''
-        settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
-        self._send(settings.get('debug'))
-        if settings.get('debug'):
-            self._send(f'DBG {line}{EOL}')
-            # Send prompt.
-            if settings.get('use_ansi_color'):  # Colorize?
-                self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
-            else:  # As is
-                self._send(f'(Pdb) ')
+    def writeInfo(self, line):
+        '''Write internal non-pdb info to client.'''
+        sc.debug(f'Info:{line}')
+        self._send(f'> {line}{EOL}')
+        self.writePrompt()
+
+    def writePrompt(self):
+        sc.debug(f'Prompt')
+        if self._col:
+            self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
+        else:  # As is
+            self._send(f'(Pdb) ')
 
 
 #-----------------------------------------------------------------------------------
@@ -143,6 +142,7 @@ class SbotPdb(pdb.Pdb):
     '''Run pdb behind a blocking tcp server.'''
 
     def __init__(self):
+        '''Construction.'''
         try:
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             host = settings.get('host')
@@ -174,28 +174,22 @@ class SbotPdb(pdb.Pdb):
             self.do_error(e)
 
     def set_trace(self, frame):
-        # Check for good instantiation.
-        if self.handle is None:
-            return
-
-        try:
-            super().set_trace(frame)  # This blocks until user says done.
-        except IOError as e:
-            if e.errno == errno.ECONNRESET:
-                sc.info('Client closed connection.')
-                self.do_quit()
-            else:
-                self.do_error(e)
-        except Exception as e:  # TODO1 Can't actually do this - exc go to sys.excepthook, maybe that's good enough.
-            self.do_error(e)
-
-    def do_error(self, e):
-        sc.error(f'{e}', e.__traceback__)
+        '''Starts the debugger.'''
         if self.handle is not None:
-            self.handle.write_debug(f'Exception! {e}')
-        self.do_quit()
+            try:
+                # This blocks until client says done.
+                super().set_trace(frame)
+            except IOError as e:
+                if e.errno == errno.ECONNRESET:
+                    sc.info('Client closed connection.')
+                    self.do_quit()
+                else:
+                    self.do_error(e)
+            except Exception as e:  # App exceptions actually go to sys.excepthook.
+                self.do_error(e)
 
     def do_quit(self, arg=None):
+        '''Stopping debugging.'''
         sc.info('Session quitting.')
         if self.handle is not None:
             self.handle.close()
@@ -205,6 +199,13 @@ class SbotPdb(pdb.Pdb):
                 res = super().do_quit(arg)
             except Exception as e:
                 self.do_error(e)
+
+    def do_error(self, e):
+        '''Bad error handler.'''
+        sc.error(f'{e}', e.__traceback__)
+        if self.handle is not None:
+            self.handle.writeInfo(f'Exception: {e}')
+        self.do_quit()
 
 
 #-----------------------------------------------------------------------------------

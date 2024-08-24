@@ -10,7 +10,4 @@
 
     // Server provides ansi color.
     "use_ansi_color": true,
-
-    // Print debug statements to console.
-    "debug": true
 }

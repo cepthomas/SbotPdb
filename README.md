@@ -33,8 +33,9 @@ Built for ST4 on Windows and Linux. SbotPdbClient is Windows only.
 Optionally you can use the slightly-smarter SbotPdbClient tool.
 
 - Reads the same settings file as the debugger.
-- Pings the server and auto-connects when the breakpoint is hit. Reduces client/server synchronizing.
-- Client info is indicated by `>`.
+- Client auto-connects to a restarted server - such as reloading a plugin for debugging.
+- Server times out if client doesn't connect - prevents subblime from blocking on start debugging.
+- Client interaction is indicated by `>`.
 - Has some internal commands:
   - x exits the client, also stops the debugger.
   - hh shows an abbreviated help.

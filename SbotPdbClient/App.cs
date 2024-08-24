@@ -16,9 +16,6 @@ namespace SbotPdbClient
         #region Server config
         string _host = "???";
         int _port = 0;
-        int _timeout = 5; // server listen timeout
-        bool _useAnsiColor = true;
-        bool _debug = true;
         #endregion
 
         #region Fields
@@ -26,9 +23,10 @@ namespace SbotPdbClient
         readonly string _eol = "\r\n";
         readonly ConcurrentQueue<string?> _cmdQ = new();
 
-        // Human polling time.
+        // Human polling time in msec.
         const int LOOP_TIME = 100;
-        // Detect loss of server.
+
+        // Server must reply to commands in msec.
         const int SERVER_LOSS_TIME = 100;
 
         readonly Stopwatch _watch = new();
@@ -196,17 +194,15 @@ namespace SbotPdbClient
                             case "port":
                                 _port = int.Parse(val);
                                 break;
-                            case "timeout":
-                                _timeout = int.Parse(val);
-                                break;
-                            case "use_ansi_color":
-                                _useAnsiColor = bool.Parse(val);
-                                break;
-                            case "debug":
-                                _debug = bool.Parse(val);
-                                break;
+                            //case "timeout":
+                            //    _timeout = int.Parse(val);
+                            //    break;
+                            //case "use_ansi_color":
+                            //    _useAnsiColor = bool.Parse(val);
+                            //    break;
                             default:
-                                throw new ArgumentException(s);
+                                //throw new ArgumentException(s);
+                                break;
                         }
                     }
                 }
@@ -227,9 +223,9 @@ namespace SbotPdbClient
                 "run or restart [args ...]                    Restart the program with 'args'.",
                 "s(tep)                                       Step into function.",
                 "n(ext)                                       Step over function.",
-                "unt(il)        [lineno]                      Continue until 'lineno' or next.",
                 "r(eturn)                                     Step out of function.",
                 "c(ont(inue))                                 Continue execution until breakpoint.",
+                "unt(il)        [lineno]                      Continue until 'lineno' or next.",
                 "j(ump)         lineno                        Jump to 'lineno'.",
                 "w(here)                                      Print a stack trace. '>' is current frame.",
                 "d(own)         [count]                       Move the current frame 'count' or 1 levels down/newer.",
