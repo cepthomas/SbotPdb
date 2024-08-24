@@ -25,15 +25,15 @@ namespace SbotPdbClient
         TcpClient? _client = null;
         readonly string _eol = "\r\n";
         readonly ConcurrentQueue<string?> _cmdQ = new();
+
+        // Human polling time.
+        const int LOOP_TIME = 100;
+        // Detect loss of server.
+        const int SERVER_LOSS_TIME = 100;
+
+        readonly Stopwatch _watch = new();
+        long _sendts = 0;
         #endregion
-
-
-        string _traceFn = @"C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\SbotPdbClient\_trace.txt";
-        void DoTrace(string msg)
-        {
-            //msg = msg.Replace("\n", "_N").Replace("\r", "_R");
-            //File.AppendAllText(_traceFn, msg + Environment.NewLine);
-        }
 
         /// <summary>
         /// Run the loop.
@@ -46,11 +46,12 @@ namespace SbotPdbClient
                 Console.BufferHeight = 300;
                 Console.BufferWidth = 120;
 
+                _watch.Start();
+
                 GetConfig();
 
-                Console.Title = $"SbotPdb Client on {_host}:{_port}";
-                Console.WriteLine($"SbotPdb Client on {_host}:{_port}");
-                Console.WriteLine($"Start your plugin code to debug");
+                Console.WriteLine($"> SbotPdb Client on {_host}:{_port}");
+                Console.WriteLine($"> Start your plugin code to debug");
 
                 bool run = true;
 
@@ -60,9 +61,10 @@ namespace SbotPdbClient
                 // Main/forever loop.
                 while (run)
                 {
-                    // Try re/connecting? // TODO1 doesn't detect that server has exited debugger. Maybe reopen every time?
+                    ///// Try re/connecting?
                     if (_client is null)
                     {
+                        Reset();
                         var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
                         _client = new TcpClient(AddressFamily.InterNetwork);
 
@@ -74,28 +76,41 @@ namespace SbotPdbClient
                         {
                             // Ignore and retry later.
                             // Maybe should check code. https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
-                            Dispose();
+                            Reset();
                         }
                         catch (Exception e)
                         {
                             // Other errors are considered fatal.
-                            Console.Write($"Fatal error:{e}");
-                            Dispose();
+                            Console.WriteLine($"> Fatal error:{e}");
+                            Reset();
                             run = false;
                         }
                     }
 
-                    // Echo anything from server to user.
+                    ///// Check for loss of server.
+                    if (_sendts > 0)
+                    {
+                        var dur = _watch.ElapsedMilliseconds - _sendts;
+                        if (dur - LOOP_TIME > SERVER_LOSS_TIME)
+                        {
+                            Console.WriteLine("> Server stopped");
+                            Reset();
+                        }
+                    }
+
+                    ///// Echo anything from server to user.
                     if (_client is not null && _client.Available > 0)
                     {
                         var data = new byte[_client.Available];
                         _client.GetStream().Read(data, 0, data.Length);
                         string s = Encoding.ASCII.GetString(data, 0, data.Length);
                         DoTrace($"INN:{s}");
-                        Console.Write(s);
+                        _sendts = 0; // reset watchdog
+                        var rtdur = _watch.ElapsedMilliseconds - _sendts;
+                        Console.Write($"{s}");
                     }
 
-                    // Check for user input.
+                    ///// Check for user input.
                     if (_cmdQ.TryDequeue(out var cliInput))
                     {
                         switch (cliInput)
@@ -112,63 +127,36 @@ namespace SbotPdbClient
                                 if (_client is not null)
                                 {
                                     DoTrace($"OUT:{cliInput}");
+                                    // Measure round trip.
+                                    _sendts = _watch.ElapsedMilliseconds;
                                     byte[] data = Encoding.ASCII.GetBytes(cliInput + _eol);
                                     _client.GetStream().Write(data, 0, data.Length);
                                     _client.GetStream().Flush();
                                 }
                                 else
                                 {
-                                    Console.Write("Can't execute - not connected");
+                                    Console.WriteLine("> Can't execute - not connected");
+                                    _sendts = 0;
                                 }
                                 break;
                         }
                     }
 
-                    // Human time.
-                    System.Threading.Thread.Sleep(100);
+                    ///// Human time.
+                    System.Threading.Thread.Sleep(LOOP_TIME);
                 }
             }
             catch (Exception e)
             {
                 // Errors are considered fatal.
-                Console.Write($"Fatal error:{e}");
-                Dispose();
+                Console.WriteLine($"> Fatal error:{e}");
+            }
+            finally
+            {
+                _watch.Stop();
+                Reset();
             }
         }
-
-        ///// <summary>
-        ///// Say hello to server.
-        ///// </summary>
-        //public void Connect()
-        //{
-        //    Dispose();
-
-        //    // Try to connect.
-        //    var ipEndPoint = new IPEndPoint(IPAddress.Parse(_host), _port);
-        //    _client = new TcpClient(AddressFamily.InterNetwork);
-
-        //    try
-        //    {
-        //        _client.Connect(ipEndPoint);
-        //    }
-        //    catch (SocketException e)
-        //    {
-        //        if (e.SocketErrorCode > 0)
-        //        {
-        //            // Ignore and retry later. Could do smarter processing of errors?
-        //            //https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
-        //        }
-        //        _client.Dispose();
-        //        _client = null;
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        // Other errors are considered fatal.
-        //        Console.Write(e.ToString());
-        //        _client.Dispose();
-        //        _client = null;
-        //    }
-        //}
 
         /// <summary>
         /// Hand parse config files. Json parser is too heavy for this app.
@@ -230,6 +218,8 @@ namespace SbotPdbClient
         /// </summary>
         public void ShortUsage()
         {
+            Console.WriteLine("> Simple help");
+
             string[] lines =
             [
                 "h(elp)         [command]",
@@ -287,6 +277,27 @@ namespace SbotPdbClient
 
             Console.WriteLine($"This is {RED}Red{NORMAL}, {GREEN}Green{NORMAL}, {YELLOW}Yellow{NORMAL}, {BLUE}Blue{NORMAL}, {MAGENTA}Magenta{NORMAL}, {CYAN}Cyan{NORMAL}, {GREY}Grey{NORMAL}! ");
             Console.WriteLine($"This is {BOLD}Bold{NOBOLD}, {UNDERLINE}Underline{NOUNDERLINE}, {REVERSE}Reverse{NOREVERSE}! ");
+        }
+
+        /// <summary>
+        /// Diagnostics.
+        /// </summary>
+        /// <param name="msg"></param>
+        void DoTrace(string msg)
+        {
+            //msg = msg.Replace("\n", "_N").Replace("\r", "_R");
+            //File.AppendAllText(@"C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\SbotPdbClient\_trace.txt", msg + Environment.NewLine);
+        }
+
+        /// <summary>
+        /// Reset comms.
+        /// </summary>
+        public void Reset()
+        {
+            _client?.Dispose();
+            _client = null;
+            // Reset watchdog.
+            _sendts = 0;
         }
 
         /// <summary>

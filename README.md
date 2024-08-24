@@ -34,6 +34,7 @@ Optionally you can use the slightly-smarter SbotPdbClient tool.
 
 - Reads the same settings file as the debugger.
 - Pings the server and auto-connects when the breakpoint is hit. Reduces client/server synchronizing.
+- Client info is indicated by `>`.
 - Has some internal commands:
   - x exits the client, also stops the debugger.
   - hh shows an abbreviated help.

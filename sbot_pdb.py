@@ -92,9 +92,9 @@ class FileWrapper(object):
             col = settings.get('use_ansi_color')
             for l in self._send_buff.splitlines():
                 # print('!!!', l)
-                if col:  # TODO user configurable colors  str.startswith
-                    # if l.startswith('-> '):
-                    if '-> ' in l:
+                if col:  # TODO user configurable colors
+                    # if '-> ' in l: TODO1 for l command
+                    if l.startswith('-> '):
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
                     elif l.startswith('>> '):
                         self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
@@ -106,19 +106,6 @@ class FileWrapper(object):
                         self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
                     else: # verbatim
                         self._send(f'{l}{EOL}')
-
-                    # if '->' in l:
-                    #     self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-                    # elif '>>' in l:
-                    #     self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
-                    # elif '***' in l:
-                    #     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-                    # elif 'Error:' in l:
-                    #     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-                    # elif '>' in l:
-                    #     self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
-                    # else:
-                    #     self._send(f'{l}{EOL}')
                 else:  # As is
                     self._send(f'{l}{EOL}')
 
