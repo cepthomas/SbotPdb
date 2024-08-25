@@ -47,7 +47,7 @@ Optionally you can use the slightly-smarter SbotPdbClient tool which does all of
 
 ## Notes
 
-Because of the nature of remote debugging, issuing a q(uit) command instead of c(ont) causes
+Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
 an unhandled exception. This is also caused by closing the SbotPdbClient if you are using it.
 [See](https://stackoverflow.com/a/34936583).
 It is harmless but if it annoys you, add (or edit) this code somewhere in your plugins:
