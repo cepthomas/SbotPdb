@@ -8,7 +8,7 @@ line but only as part of a running plugin's code.
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
 with the new stuff to make the grease good.
 
-Built for ST4 on Windows and Linux. SbotPdbClient is Windows only but probably could work on linux.
+Built for ST4 on Windows and Linux.
 
 ## Features
 
@@ -33,6 +33,11 @@ Optionally you can use the slightly-smarter SbotPdbClient tool which does all of
 - Has some extra commands:
   - `x` exits the client, also stops the server/debugger.
   - `hh` shows an abbreviated help.
+
+SbotPdbClient is Windows only but probably could work on linux.
+Currently you need to build this yourself using VS 2022. Pull the source from
+https://github.com/cepthomas/SbotPdb/tree/main/SbotPdbClient, build, run.
+
 
 ![SbotPdbClient](cli2.png)
 
