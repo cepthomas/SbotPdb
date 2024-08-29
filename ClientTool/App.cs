@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 
 
-namespace SbotPdbClient
+namespace ClientTool
 {
     internal class App : IDisposable
     {
@@ -40,7 +40,7 @@ namespace SbotPdbClient
         {
             try
             {
-                Console.Title = "SbotPdb Client";
+                Console.Title = "Plugin Pdb ClientTool";
                 Console.BufferHeight = 300;
                 Console.BufferWidth = 120;
 
@@ -48,7 +48,7 @@ namespace SbotPdbClient
 
                 GetConfig();
 
-                Console.WriteLine($"! SbotPdb Client started on {_host}:{_port}");
+                Console.WriteLine($"! Plugin Pdb ClientTool started on {_host}:{_port}");
                 Console.WriteLine($"! Run your plugin code to debug");
 
                 bool run = true;
@@ -284,7 +284,7 @@ namespace SbotPdbClient
         void DoTrace(string msg)
         {
             //msg = msg.Replace("\n", "_N").Replace("\r", "_R");
-            //File.AppendAllText(@"C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\SbotPdbClient\_trace.txt", msg + Environment.NewLine);
+            //File.AppendAllText(@"some.txt", msg + Environment.NewLine);
         }
 
         /// <summary>

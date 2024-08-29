@@ -5,14 +5,14 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>ClientTool</RootNamespace>
+    <AssemblyName>ClientTool</AssemblyName>
+    <Description>ClientTool application</Description>
 
     <!--
     <UseWindowsForms>true</UseWindowsForms>
-    <RootNamespace>ClipPlayer</RootNamespace>
-    <AssemblyName>ClipPlayer</AssemblyName>
     <Deterministic>False</Deterministic>
     <Version>1.1.0</Version>
-    <Description>ClipPlayer application</Description>
     <Copyright>MIT License</Copyright>
     <WarningLevel>4</WarningLevel>
     <NoWarn>CS1591</NoWarn> 

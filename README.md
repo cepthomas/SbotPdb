@@ -1,7 +1,7 @@
-# SbotPdb
+# Plugin Pdb
 
 This is a wrapper to allow a tcp client to run pdb remotely.
-There are predecessors like this but SbotPdb has some tweaks to make it friendlier for
+There are predecessors like this but Plugin Pdb has some tweaks to make it friendlier for
 Sublime Text plugin debugging. Consequently it doesn't support execution from the command
 line but only as part of a running plugin's code.
 
@@ -18,28 +18,28 @@ can be set to force socket closure which unfreezes the ST application rather tha
 forcibly shut it down. Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`,
 run the plugin, and then connect to it with your client. You can then execute pdb commands.
 
-![SbotPdb](cli1.png)
+![Plugin Pdb](cli1.png)
 
 See [test](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py) for an example.
 
-## SbotPdbClient
+## ClientTool
 
-Optionally you can use the slightly-smarter SbotPdbClient tool which does all of the above plus:
-- Reads the same settings file as SbotPdb so no fiddling with hosts.
-- Client automatically connects to the server. This means that you can edit/run your plugin code
+Optionally you can use the slightly-smarter ClientTool tool which does all of the above plus:
+- Reads the same settings file as Plugin Pdb so no fiddling with hosts.
+- ClientTool automatically connects to the server. This means that you can edit/run your plugin code
   without having to restart the client.
-- Client detects dead server by requiring a response for each command sent.
+- ClientTool detects dead server by requiring a response for each command sent.
 - Provides some extra information, indicated by `!`.
 - Has some extra commands:
   - `x` exits the client, also stops the server/debugger.
   - `hh` shows an abbreviated help.
 
-SbotPdbClient is Windows only but probably could work on linux.
+ClientTool is Windows only but probably could work on linux.
 Currently you need to build this yourself using VS 2022. Pull the source from
-https://github.com/cepthomas/SbotPdb/tree/main/SbotPdbClient, build, run.
+https://github.com/cepthomas/SbotPdb/tree/main/ClientTool, build, run.
 
 
-![SbotPdbClient](cli2.png)
+![ClientTool](cli2.png)
 
 ## Settings
 
@@ -53,7 +53,7 @@ https://github.com/cepthomas/SbotPdb/tree/main/SbotPdbClient, build, run.
 ## Notes
 
 Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
-an unhandled exception. This is also caused by closing the SbotPdbClient if you are using it.
+an unhandled exception. This is also caused by closing the ClientTool if you are using it.
 [See](https://stackoverflow.com/a/34936583).
 It is harmless but if it annoys you, add (or edit) this code somewhere in your plugins:
 
