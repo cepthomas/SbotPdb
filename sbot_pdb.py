@@ -92,7 +92,7 @@ class FileWrapper(object):
         if '(Pdb)' in line:
             for l in self._send_buff.splitlines():
                 sc.debug(f'Response:{l}')
-                if self._col:  # TODO user configurable colors?
+                if self._col:  # TODO user configurable colors.
                     if l.startswith('-> '):
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
                     # elif '->\t' in l:
