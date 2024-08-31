@@ -5,7 +5,7 @@ import sublime
 import sublime_plugin
 from . import sbot_pdb
 
-# Benign reload in case of edited.
+# Benign reload in case of being edited.
 importlib.reload(sbot_pdb)
 
 

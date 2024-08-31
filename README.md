@@ -1,26 +1,27 @@
 # Plugin Pdb
 
-This is a wrapper to allow a tcp client to run pdb remotely.
-There are predecessors like this but Plugin Pdb has some tweaks to make it friendlier for
-Sublime Text plugin debugging. Consequently it doesn't support execution from the command
-line but only as part of a running plugin's code.
+Sublime Text plugin for debugging ST plugins using pdb remotely over a tcp
+connection. There are other remote pdb projects but this specifically targets
+plugin debugging.
 
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
-with the new stuff to make the grease good.
+with the addition of ST plugin hooks.
 
 Built for ST4 on Windows and Linux.
 
 ## Features
 
-Basically this provides a standard pdb interface via a tcp client - linux terminal,
-windows putty, etc. Optionally some colorizing of output can be turned on. An optional timeout
-can be set to force socket closure which unfreezes the ST application rather than having to
-forcibly shut it down. Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`,
-run the plugin, and then connect to it with your client. You can then execute pdb commands.
+- Use generic tcp client - linux terminal, windows putty, etc.
+- Option for colorizing of output.
+- Optional timeout can be set to force socket closure which unfreezes the ST application rather
+  than having to forcibly shut it down.
+- Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`, run the plugin,
+  and then connect to it with your client. You can then execute pdb commands.
+
+See [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
 
 ![Plugin Pdb](cli1.png)
 
-See [test](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py) for an example.
 
 ## ClientTool
 
