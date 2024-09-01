@@ -10,6 +10,8 @@ import pdb
 from . import sbot_common as sc
 
 
+# TODO Finish this py version?
+
 SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
 
 ANSI_GRAY   = '\033[90m'
