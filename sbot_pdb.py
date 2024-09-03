@@ -75,7 +75,7 @@ class CommIf(object):
         # Private stuff.
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
         self._col = settings.get('use_ansi_color')
-        self._nl_rex = re.compile(EOL)  # Convert all to standard line ending.
+        self._nl_rex = re.compile(EOL)  # TODO1? Convert all to standard line ending.
         self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
         self._send_buff = ''
 
@@ -86,7 +86,7 @@ class CommIf(object):
             self.last_cmd = s
             # Log it with some chars made visible.
             slog = s.replace('\n', '_N').replace('\r', '_R')
-            sc.debug(f'Command:{slog}')
+            sc.debug(f'Receive command:{slog}')
             return self.last_cmd
         except Exception as e:
             return ''
@@ -112,7 +112,7 @@ class CommIf(object):
         # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
         if '(Pdb)' in line:
             for l in self._send_buff.splitlines():
-                sc.debug(f'Response:{l}')
+                sc.debug(f'Send response:{l}')
                 if self._col:  # TODO user configurable colors.
                     if l.startswith('-> '):
                         self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
@@ -145,12 +145,12 @@ class CommIf(object):
 
     def writeInfo(self, line):
         '''Write internal non-pdb info to client.'''
-        sc.debug(f'Info:{line}')
+        sc.debug(f'Send info:{line}')
         self._send(f'! {line}{EOL}')
         self.writePrompt()
 
     def writePrompt(self):
-        sc.debug(f'Prompt')
+        sc.debug(f'Send prompt')
         if self._col:
             self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
         else:  # As is
