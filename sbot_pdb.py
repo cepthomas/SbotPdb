@@ -1,47 +1,19 @@
-import errno
-import os
-import re
-import socket
 import sys
-import traceback
+import os
+import socket
 import sublime
 import sublime_plugin
+import errno
 import pdb
 from . import sbot_common as sc
 
 
-
 SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
 
-ANSI_GRAY   = '\033[90m'
-ANSI_RED    = '\033[91m'
-ANSI_GREEN  = '\033[92m'
-ANSI_YELLOW = '\033[93m'
-ANSI_BLUE   = '\033[94m'
-ANSI_PURPLE = '\033[95m'
-ANSI_CYAN   = '\033[96m'
-ANSI_RESET  = '\033[0m'
+ANSI_RESET = '\033[0m'
 
-# Handshake delim.
+# Standard delim.
 EOL = '\r\n'
-
-
-# if l.startswith('-> '):
-#     self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-# elif ' ->' in l:
-#     self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-# elif l.startswith('>> '):
-#     self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
-# elif '***' in l:
-#     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-# elif 'Error:' in l:
-#     self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-# elif l.startswith('> '):
-#     self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
-# else: # default
-#     self._send(f'{l}{EOL}')
-# if self._col:
-#     self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
 
 
 #-----------------------------------------------------------------------------------
@@ -74,10 +46,14 @@ class CommIf(object):
         self.fileno = fh.fileno
         # Private stuff.
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
-        self._col = settings.get('use_ansi_color')
-        self._nl_rex = re.compile(EOL)  # TODO1? Convert all to standard line ending.
-        self._send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
-        self._send_buff = ''
+        self.current_line_color = settings.get('current_line_color')
+        self.exception_line_color = settings.get('exception_line_color')
+        self.stack_location_color = settings.get('stack_location_color')
+        self.prompt_color = settings.get('prompt_color')
+        self.error_color = settings.get('error_color')
+        # self._nl_rex = re.compile(EOL)  # TODO1? Convert all to standard line ending.
+        self.send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
+        self.send_buff = ''
 
     def readline(self, size=1):
         '''Capture the last user command.'''
@@ -88,7 +64,7 @@ class CommIf(object):
             slog = s.replace('\n', '_N').replace('\r', '_R')
             sc.debug(f'Receive command:{slog}')
             return self.last_cmd
-        except Exception as e:
+        except Exception:
             return ''
 
     # readline seems to be the only read function used. Blow up if the others show up.
@@ -111,32 +87,32 @@ class CommIf(object):
         # pdb writes lines piecemeal but we want full proper lines.
         # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
         if '(Pdb)' in line:
-            for l in self._send_buff.splitlines():
-                sc.debug(f'Send response:{l}')
-                if self._col:  # TODO user configurable colors.
-                    if l.startswith('-> '):
-                        self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-                    elif ' ->' in l:
-                        self._send(f'{ANSI_YELLOW}{l}{ANSI_RESET}{EOL}')
-                    elif l.startswith('>> '):
-                        self._send(f'{ANSI_GREEN}{l}{ANSI_RESET}{EOL}')
-                    elif '***' in l:
-                        self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-                    elif 'Error:' in l:
-                        self._send(f'{ANSI_RED}{l}{ANSI_RESET}{EOL}')
-                    elif l.startswith('> '):
-                        self._send(f'{ANSI_CYAN}{l}{ANSI_RESET}{EOL}')
-                    else: # default
-                        self._send(f'{l}{EOL}')
-                else:  # As is
-                    self._send(f'{l}{EOL}')
+            for s in self.send_buff.splitlines():
+                sc.debug(f'Send response:{s}')
+                if self._col:
+                    if s.startswith('-> '):
+                        self.send(f'\033[{self.current_line_color}m{s}{ANSI_RESET}{EOL}')
+                    elif ' ->' in s:
+                        self.send(f'\033[{self.current_line_color}m{s}{ANSI_RESET}{EOL}')
+                    elif s.startswith('>> '):
+                        self.send(f'\033[{self.exception_line_color}m{s}{ANSI_RESET}{EOL}')
+                    elif '***' in s:
+                        self.send(f'\033[{self.error_color}m{s}{ANSI_RESET}{EOL}')
+                    elif 'Error:' in s:
+                        self.send(f'\033[{self.error_color}m{s}{ANSI_RESET}{EOL}')
+                    elif s.startswith('> '):
+                        self.send(f'\033[{self.stack_location_color}m{s}{ANSI_RESET}{EOL}')
+                    else:  # default
+                        self.send(f'{s}{EOL}')
+                else:  # No color, as is
+                    self.send(f'{s}{EOL}')
 
             self.writePrompt()
             # Reset.
-            self._send_buff = ''
+            self.send_buff = ''
         else:
             # Just collect.
-            self._send_buff += line
+            self.send_buff += line
 
     # def writelines(self, lines):
     #     '''Write all lines to client. Seems to be unused.'''
@@ -146,15 +122,15 @@ class CommIf(object):
     def writeInfo(self, line):
         '''Write internal non-pdb info to client.'''
         sc.debug(f'Send info:{line}')
-        self._send(f'! {line}{EOL}')
+        self.send(f'! {line}{EOL}')
         self.writePrompt()
 
     def writePrompt(self):
-        sc.debug(f'Send prompt')
+        sc.debug('Send prompt')
         if self._col:
-            self._send(f'{ANSI_BLUE}(Pdb) {ANSI_RESET}')
+            self.send(f'\033[{self.prompt_color}m(Pdb) {ANSI_RESET}{EOL}')
         else:  # As is
-            self._send(f'(Pdb) ')
+            self.send('(Pdb) ')
 
 
 #-----------------------------------------------------------------------------------
@@ -167,13 +143,13 @@ class SbotPdb(pdb.Pdb):
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
             host = settings.get('host')
             port = settings.get('port')
-            timeout = settings.get('timeout')
+            client_connect_timeout = settings.get('client_connect_timeout')
             self.commif = None
             self.active_instance = None
 
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # TODO does this need close()?
-            if timeout > 0:
-                sock.settimeout(timeout)  # Seconds.
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TODO does this need close()?
+            if client_connect_timeout > 0:
+                sock.settimeout(client_connect_timeout)  # Seconds.
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
             sock.bind((host, port))
             sc.info(f'Session open at {sock.getsockname()}, waiting for connection.')
@@ -186,7 +162,8 @@ class SbotPdb(pdb.Pdb):
             self.commif = CommIf(conn)
             super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)
             SbotPdb.active_instance = self
-        except socket.timeout as e:
+        # except socket.timeout:
+        except TimeoutError:
             # Timeout waiting for a client to connect.
             sublime.message_dialog('Session timed out.')
             sc.info('Session timed out.')
@@ -216,7 +193,7 @@ class SbotPdb(pdb.Pdb):
             self.commif = None
             SbotPdb.active_instance = None
             try:
-                res = super().do_quit(arg)
+                super().do_quit(arg)
             except Exception as e:
                 self.do_error(e)
 
