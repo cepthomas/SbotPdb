@@ -4,7 +4,8 @@ import time
 import socket
 import threading
 import queue
-from . import sbot_common as sc
+import datetime
+import traceback
 
 
 # Standard delim.
@@ -15,6 +16,10 @@ LOOP_TIME = 50
 
 # Server must reply to client in msec.
 SERVER_RESPONSE_TIME = 100
+
+# Some paths.
+pkgspath = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
+log_fn = os.path.join(pkgspath, 'User', '.SbotStore', 'sbot.log')
 
 
 #-----------------------------------------------------------------------------------
@@ -27,22 +32,26 @@ class PdbClient(object):
         self.commif = None
 
         # CLI read queue.
-        self.cmdQ = queue.Queue
+        self.cmdQ = queue.Queue()
 
         # Last command time. Non zero implies waiting for a response.
         self.sendts = 0
 
         # Server config.
-        self.host = '???'
-        self.port = 0
+        self.host = None
+        self.port = None
         self.get_config()
 
+        if self.host is None or self.port is None:
+            self.error('Invalid host or port')
+
     def go(self):
-        '''Run the loop.'''
+        '''Run the main loop.'''
 
         try:
-            sys.stdout.writeline(f'! Plugin Pdb Client started on {self.host}:{self.port}')
-            sys.stdout.writeline('! Run your plugin code to debug')
+            run = True
+            self.tell(f'! Plugin Pdb Client started on {self.host}:{self.port}')
+            self.tell(f'! Run your plugin code to debug')
 
             ##### Run user cli input in a thread.
             def worker():
@@ -51,9 +60,8 @@ class PdbClient(object):
             threading.Thread(target=worker, daemon=True).start()
 
             ##### Main/forever loop.
-            run = True
             while run:
-                timedout = False
+                timed_out = False
 
                 ##### Try (re)connecting?
                 if self.commif is None:
@@ -66,13 +74,13 @@ class PdbClient(object):
                     try:
                         sock.connect((self.host, self.port))
 
-                        # Success.
-                        sc.info('Connected to server.')
-                        self.commif = sock.makefile('rw', buffering=0)
+                        # Didn't fault so success.
+                        self.info('Connected to server')
+                        self.commif = sock.makefile('rw')  #, buffering=0)
 
                     except TimeoutError:
                         # Server is not listening right now. Normal operation.
-                        timedout = True
+                        timed_out = True
                         self.reset()
 
                     except ConnectionError:
@@ -82,7 +90,7 @@ class PdbClient(object):
 
                     except Exception as e:
                         # Other errors are considered fatal.
-                        sys.stdout.writeline(f'! Fatal error:{e}')
+                        self.error('Fatal error', e.__traceback__)
                         self.reset()
                         run = False
 
@@ -92,7 +100,7 @@ class PdbClient(object):
                 if self.commif is not None and self.sendts > 0:
                     dur = self._get_msec() - self.sendts
                     if dur > SERVER_RESPONSE_TIME:
-                        sys.stdout.writeline('! Server stopped')
+                        self.tell('! Server stopped')
                         self.reset()
 
                 # Anything to send? Check for user input.
@@ -107,11 +115,11 @@ class PdbClient(object):
                     else:
                         if self.commif is not None:
                             # Send any other user input to server.
-                            self.commif.writeline(s)
+                            self.commif.write(s + '\n')
                             # Measure round trip.
                             self.sendts = self._get_msec()
                         else:
-                            sys.stdout.writeline('! Not connected')
+                            self.tell('! Not connected')
 
                 # Get any server responses.
                 if self.commif is not None:
@@ -119,62 +127,60 @@ class PdbClient(object):
                     try:
                         while True:
                             s = self.commif.readline()
-                            sys.stdout.writeline(s)
+                            self.tell(s)
 
                     except TimeoutError:
-                        timedout = True
+                        timed_out = True
                         self.reset()
 
                     except ConnectionError:
                         self.reset()
 
                     except Exception as e:
-                        sys.stdout.writeline(f'! Fatal error:{e}')
+                        self.error('Fatal error', e.__traceback__)
                         self.reset()
                         run = False
 
                 # If there was no timeout, delay a bit.
-                if not timedout:
+                if not timed_out:
                     time.sleep(float(LOOP_TIME) / 1000.0)
 
         except Exception as e:
             # An error escaped the controls in the main loop.
-            sys.stdout.writeline(f'! Fatal error:{e}')
-            sc.error()
+            self.error('Fatal error', e.__traceback__)
             self.reset()
             run = False
 
     def get_config(self):
         '''Hand parse config files. Json parser is too heavy for this app.'''
-
         # Overlay default and user options.
-        pkgspath = os.path.join(sc.expand_vars('$APPDATA'), 'Sublime Text', 'Packages')
+        self.parse_record(os.path.join(pkgspath, 'SbotPdb', 'SbotPdb.sublime-settings'), True)
+        self.parse_record(os.path.join(pkgspath, 'User', 'SbotPdb.sublime-settings'), False)
 
-        self.parse(os.path.join(pkgspath, 'SbotPdb', 'SbotPdb.sublime-settings'), True)
-        self.parse(os.path.join(pkgspath, 'User', 'SbotPdb.sublime-settings'), False)
-
-    def parse(self, fn, required):
+    def parse_record(self, fn, required):
+        '''Parse one config line.'''
         if (not required and not os.path.isfile(fn)):
             return
 
-        for s in list(fn):
-            s = s.trim()
-            if s.startswith('\"'):
-                s = s.replace('\"', '').replace(',', '')
+        with open(fn) as f:
+            for s in f.readlines():
+                s = s.strip()
+                if s.startswith('\"'):
+                    s = s.replace('\"', '').replace(',', '')
+                    parts = s.split(':')
+                    name = parts[0]
+                    val = parts[1].strip()
 
-                parts = s.split(':')
-                name = parts[0]
-                val = parts[1].trim()
-
-                if name == 'host':
-                    self.host = val
-                elif name == 'port':
-                    self.port = int.parse(val)
-                else:
-                    pass
+                    if name == 'host':
+                        self.host = val
+                    elif name == 'port':
+                        self.port = int(val)
+                    else:
+                        pass
 
     def succinct_usage(self):
-        sys.stdout.writeline('! Succinct help')
+        '''Simple help.'''
+        self.tell('! Succinct help')
         lines = [
             "h(elp)         [command]",
             "hh                                           What you see now.",
@@ -205,9 +211,10 @@ class PdbClient(object):
         ]
 
         for line in lines:
-            sys.stdout.writeline(line)
+            self.tell(line)
 
     def get_msec(self):
+        '''Get elapsed msec.'''
         return time.perf_counter_ns() / 1000000
 
     def reset(self):
@@ -217,10 +224,51 @@ class PdbClient(object):
             self.commif = None
         # Reset watchdog.
         self.sendts = 0
-        self.cmdQ.clear()
+        # Clear queue.
+        while not self.cmdQ.empty():
+            self.cmdQ.get()
+
+    def error(self, message, tb=None):
+        '''Log function.'''
+        self.write_log('ERR', message, tb)
+        self.tell(f'! Error: {message} - see the log')
+
+    def info(self, message):
+        '''Log function.'''
+        self.write_log('INF', message)
+        # self.tell(f'! {message}')
+
+    def debug(self, message):
+        '''Log function.'''
+        self.write_log('DBG', message)
+
+    def write_log(self, level, message, tb=None):
+        '''Format a standard message with caller info and log it.'''
+        frame = sys._getframe(2)
+        fn = os.path.basename(frame.f_code.co_filename)
+        line = frame.f_lineno
+
+        time_str = f'{str(datetime.datetime.now())}'[0:-3]
+
+        with open(log_fn, 'a') as log:
+            out_line = f'{time_str} {level} {fn}:{line} {message}'
+            log.write(out_line + '\n')
+            if tb is not None:
+                # The traceback formatter is a bit ugly - clean it up.
+                tblines = []
+                for s in traceback.format_tb(tb):
+                    if len(s) > 0:
+                        tblines.append(s[:-1])
+                stb = '\n'.join(tblines)
+                log.write(stb + '\n')
+            log.flush()
+
+    def tell(self, msg):
+        '''Tell the user.'''
+        sys.stdout.write(msg + '\n')
 
 
 #-----------------------------------------------------------------------------------
 if __name__ == '__main__':
-    client = PdbClient
+    client = PdbClient()
     client.go()

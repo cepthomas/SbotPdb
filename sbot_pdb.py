@@ -46,6 +46,7 @@ class CommIf(object):
         self.fileno = fh.fileno
         # Private stuff.
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+        self.use_ansi_color = settings.get('use_ansi_color')
         self.current_line_color = settings.get('current_line_color')
         self.exception_line_color = settings.get('exception_line_color')
         self.stack_location_color = settings.get('stack_location_color')
@@ -89,7 +90,7 @@ class CommIf(object):
         if '(Pdb)' in line:
             for s in self.send_buff.splitlines():
                 sc.debug(f'Send response:{s}')
-                if self._col:
+                if self.use_ansi_color:
                     if s.startswith('-> '):
                         self.send(f'\033[{self.current_line_color}m{s}{ANSI_RESET}{EOL}')
                     elif ' ->' in s:
@@ -127,7 +128,7 @@ class CommIf(object):
 
     def writePrompt(self):
         sc.debug('Send prompt')
-        if self._col:
+        if self.use_ansi_color:
             self.send(f'\033[{self.prompt_color}m(Pdb) {ANSI_RESET}{EOL}')
         else:  # As is
             self.send('(Pdb) ')
