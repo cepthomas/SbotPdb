@@ -31,7 +31,7 @@ def plugin_unloaded():
 #-----------------------------------------------------------------------------------
 class CommIf(object):
     '''Read/write interface to socket. Makes server socket look like a file.
-    Also handles encoding and line endings.'''
+    Also handles encoding, colo, line endings etc.'''
     def __init__(self, conn):
         self.conn = conn
         self.last_cmd = None
@@ -87,38 +87,53 @@ class CommIf(object):
         '''Write pdb output line to client.'''
         # pdb writes lines piecemeal but we want full proper lines.
         # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
-        if '(Pdb)' in line:
-            for s in self.send_buff.splitlines():
-                sc.debug(f'Send response:{s}')
-                if self.use_ansi_color:
-                    if s.startswith('-> '):
-                        self.send(f'\033[{self.current_line_color}m{s}{ANSI_RESET}{EOL}')
-                    elif ' ->' in s:
-                        self.send(f'\033[{self.current_line_color}m{s}{ANSI_RESET}{EOL}')
-                    elif s.startswith('>> '):
-                        self.send(f'\033[{self.exception_line_color}m{s}{ANSI_RESET}{EOL}')
-                    elif '***' in s:
-                        self.send(f'\033[{self.error_color}m{s}{ANSI_RESET}{EOL}')
-                    elif 'Error:' in s:
-                        self.send(f'\033[{self.error_color}m{s}{ANSI_RESET}{EOL}')
-                    elif s.startswith('> '):
-                        self.send(f'\033[{self.stack_location_color}m{s}{ANSI_RESET}{EOL}')
-                    else:  # default
-                        self.send(f'{s}{EOL}')
-                else:  # No color, as is
-                    self.send(f'{s}{EOL}')
 
-            self.writePrompt()
-            # Reset.
-            self.send_buff = ''
-        else:
-            # Just collect.
-            self.send_buff += line
+        try:
+            if '(Pdb)' in line:
+                for s in self.send_buff.splitlines():
+                    sc.debug(f'Send response:{s}')
+                    color = None
+
+                    if self.use_ansi_color:
+                        if s.startswith('-> '): color = self.current_line_color
+                        elif ' ->' in s: color = self.current_line_color
+                        elif s.startswith('>> '): color = self.exception_line_color
+                        elif '***' in s: color = self.error_color
+                        elif 'Error:' in s: color = self.error_color
+                        elif s.startswith('> '): color = self.stack_location_color
+
+                    self.send(f'{s}{EOL}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{EOL}')
+
+                self.writePrompt()
+
+                # Reset buffer.
+                self.send_buff = ''
+            else:
+                # Just collect.
+                self.send_buff += line
+
+        except ConnectionError:
+            # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
+            # Ignore and retry later.
+            sc.info('Client closed connection.')
+            # self.do_quit()
+
+        except Exception as e:
+            # Other errors are considered fatal.
+            self.do_error(e)
 
     # def writelines(self, lines):
     #     '''Write all lines to client. Seems to be unused.'''
     #     for line in lines:
     #         self.write(line)
+
+# 2024-09-05 16:31:08.537 ERR sbot_dev.py:356 Unhandled exception ConnectionAbortedError: 
+#   [WinError 10053] An established connection was aborted by the software in your host machine
+
+  # File "C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\sbot_pdb.py", line 121, in write
+  #   self.send(f'{s}{EOL}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{EOL}')
+  # File "C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\sbot_pdb.py", line 56, in <lambda>
+  #   self.send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
 
     def writeInfo(self, line):
         '''Write internal non-pdb info to client.'''
@@ -163,11 +178,12 @@ class SbotPdb(pdb.Pdb):
             self.commif = CommIf(conn)
             super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)
             SbotPdb.active_instance = self
-        # except socket.timeout:
+
         except TimeoutError:
             # Timeout waiting for a client to connect.
             sublime.message_dialog('Session timed out.')
             sc.info('Session timed out.')
+
         except Exception as e:
             self.do_error(e)
 
@@ -177,12 +193,20 @@ class SbotPdb(pdb.Pdb):
             try:
                 # This blocks until client says done.
                 super().set_trace(frame)
-            except IOError as e:
-                if e.errno == errno.ECONNRESET:
-                    sc.info('Client closed connection.')
-                    self.do_quit()
-                else:
-                    self.do_error(e)
+
+            except ConnectionError:
+                # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
+                # Ignore and retry later.
+                sc.info('Client closed connection.')
+                # self.do_quit()
+
+            # except IOError as e:
+            #     if e.errno == errno.ECONNRESET:
+            #         sc.info('Client closed connection.')
+            #         self.do_quit()
+            #     else:
+            #         self.do_error(e)
+
             except Exception as e:  # App exceptions actually go to sys.excepthook.
                 self.do_error(e)
 

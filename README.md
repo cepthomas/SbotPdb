@@ -9,6 +9,8 @@ with the addition of ST plugin hooks.
 
 Built for ST4 on Windows and Linux.
 
+where is log - prob in each plugin
+
 ## Features
 
 - Use generic tcp client - linux terminal, windows putty, etc.

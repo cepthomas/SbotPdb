@@ -14,8 +14,8 @@ EOL = '\r\n'
 # Human polling time in msec.
 LOOP_TIME = 50
 
-# Server must reply to client in msec.
-SERVER_RESPONSE_TIME = 100
+# Server must reply to client in msec. TODO 100?
+SERVER_RESPONSE_TIME = 200
 
 # Some paths.
 pkgspath = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
@@ -50,8 +50,8 @@ class PdbClient(object):
 
         try:
             run = True
-            self.tell(f'! Plugin Pdb Client started on {self.host}:{self.port}')
-            self.tell(f'! Run your plugin code to debug')
+            self.info(f'Plugin Pdb Client started on {self.host}:{self.port}')
+            self.info(f'Run plugin to debug')
 
             ##### Run user cli input in a thread.
             def worker():
@@ -59,22 +59,20 @@ class PdbClient(object):
                     self.cmdQ.put_nowait(sys.stdin.readline())
             threading.Thread(target=worker, daemon=True).start()
 
-            ##### Main/forever loop.
+            ##### Main/forever loop #####
             while run:
                 timed_out = False
 
-                ##### Try (re)connecting?
+                ##### Try (re)connecting? #####
                 if self.commif is None:
-
                     # TCP socket client
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    # Don't block.
+                    # Block with timeout.
                     sock.settimeout(float(SERVER_RESPONSE_TIME) / 1000.0)
 
                     try:
                         sock.connect((self.host, self.port))
-
-                        # Didn't fault so success.
+                        # Didn't fault so must be success.
                         self.info('Connected to server')
                         self.commif = sock.makefile('rw')  #, buffering=0)
 
@@ -90,44 +88,48 @@ class PdbClient(object):
 
                     except Exception as e:
                         # Other errors are considered fatal.
-                        self.error('Fatal error', e.__traceback__)
+                        self.error(e)
                         self.reset()
                         run = False
 
-                ##### Do main work.
+                ##### Do main work #####
 
-                # Check for server stopped but still connected.
+                # Check for server not responding but still connected.
                 if self.commif is not None and self.sendts > 0:
-                    dur = self._get_msec() - self.sendts
+                    dur = self.get_msec() - self.sendts
                     if dur > SERVER_RESPONSE_TIME:
-                        self.tell('! Server stopped')
+                        self.info('Server stopped')
                         self.reset()
 
                 # Anything to send? Check for user input.
                 while not self.cmdQ.empty():
                     s = self.cmdQ.get()
-                    if s == 'x':
-                        # internal - exit client
+                    self.debug(f'User command: {s}')
+                    if s == 'x':  # internal - exit client
                         run = False
-                    elif s == 'hh':
-                        # internal - short usage
+                    elif s == 'hh':  # internal - short usage
                         self.succinct_usage()
-                    else:
+                    else:  # Send any other user input to server.
                         if self.commif is not None:
-                            # Send any other user input to server.
-                            self.commif.write(s + '\n')
+                            self.commif.write(s + EOL)
                             # Measure round trip.
-                            self.sendts = self._get_msec()
+                            self.sendts = self.get_msec()
                         else:
-                            self.tell('! Not connected')
+                            self.info('Not connected')
 
                 # Get any server responses.
                 if self.commif is not None:
-
                     try:
-                        while True:
-                            s = self.commif.readline()
-                            self.tell(s)
+                        # Don't block.
+                        sock.settimeout(0)
+
+                        done = False
+                        while not done:
+                            s = self.commif.read(1)
+                            if s == '':
+                                done = True
+                            else:
+                                self.tell(s, False)
 
                     except TimeoutError:
                         timed_out = True
@@ -137,17 +139,17 @@ class PdbClient(object):
                         self.reset()
 
                     except Exception as e:
-                        self.error('Fatal error', e.__traceback__)
+                        self.error(e)
                         self.reset()
                         run = False
 
                 # If there was no timeout, delay a bit.
-                if not timed_out:
-                    time.sleep(float(LOOP_TIME) / 1000.0)
+                slp = (float(LOOP_TIME) / 1000.0) if timed_out else 0
+                time.sleep(slp)
 
         except Exception as e:
             # An error escaped the controls in the main loop.
-            self.error('Fatal error', e.__traceback__)
+            self.error(e)
             self.reset()
             run = False
 
@@ -228,21 +230,21 @@ class PdbClient(object):
         while not self.cmdQ.empty():
             self.cmdQ.get()
 
-    def error(self, message, tb=None):
+    def error(self, msg):
         '''Log function.'''
-        self.write_log('ERR', message, tb)
-        self.tell(f'! Error: {message} - see the log')
+        self.write_log('ERR', msg, msg.__traceback__ if msg is not None else None)
+        self.tell(f'! Error: {msg} - see the log')
 
-    def info(self, message):
+    def info(self, msg):
         '''Log function.'''
-        self.write_log('INF', message)
-        # self.tell(f'! {message}')
+        self.write_log('INF', msg)
+        self.tell(f'! {msg}')
 
-    def debug(self, message):
+    def debug(self, msg):
         '''Log function.'''
-        self.write_log('DBG', message)
+        self.write_log('DBG', msg)
 
-    def write_log(self, level, message, tb=None):
+    def write_log(self, level, msg, tb=None):
         '''Format a standard message with caller info and log it.'''
         frame = sys._getframe(2)
         fn = os.path.basename(frame.f_code.co_filename)
@@ -251,7 +253,7 @@ class PdbClient(object):
         time_str = f'{str(datetime.datetime.now())}'[0:-3]
 
         with open(log_fn, 'a') as log:
-            out_line = f'{time_str} {level} {fn}:{line} {message}'
+            out_line = f'{time_str} {level} {fn}:{line} {msg}'
             log.write(out_line + '\n')
             if tb is not None:
                 # The traceback formatter is a bit ugly - clean it up.
@@ -263,9 +265,9 @@ class PdbClient(object):
                 log.write(stb + '\n')
             log.flush()
 
-    def tell(self, msg):
-        '''Tell the user.'''
-        sys.stdout.write(msg + '\n')
+    def tell(self, msg, eol=True):
+        '''Tell the user something.'''
+        sys.stdout.write(msg + '\r\n' if eol else msg)
 
 
 #-----------------------------------------------------------------------------------
