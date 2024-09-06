@@ -7,9 +7,9 @@ import queue
 import datetime
 import traceback
 
-
 # Standard delim.
-EOL = '\r\n'
+EOL = '\n'
+# EOL = '\r\n'
 
 # Human polling time in msec.
 LOOP_TIME = 50
@@ -21,6 +21,11 @@ SERVER_RESPONSE_TIME = 200
 pkgspath = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
 log_fn = os.path.join(pkgspath, 'User', '.SbotStore', 'sbot.log')
 
+
+def make_readable(s):
+    '''So we can see things like LF, CR, ESC in log.'''
+    s = s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
+    return s
 
 #-----------------------------------------------------------------------------------
 class PdbClient(object):
@@ -40,18 +45,21 @@ class PdbClient(object):
         # Server config.
         self.host = None
         self.port = None
-        self.get_config()
+        self.ind = None
+        self.get_settings()
 
-        if self.host is None or self.port is None:
-            self.error('Invalid host or port')
+        if self.host is None or self.port is None or self.ind is None:
+            self.debug(f'host:{self.host} port:{self.port} ind:{self.ind}')
+            e = NameError(f'Invalid settings')
+            self.error(e)
 
     def go(self):
         '''Run the main loop.'''
 
         try:
             run = True
-            self.info(f'Plugin Pdb Client started on {self.host}:{self.port}')
-            self.info(f'Run plugin to debug')
+            rcv_buff = ''
+            self.info(f'Client started on {self.host}:{self.port}')
 
             ##### Run user cli input in a thread.
             def worker():
@@ -59,7 +67,7 @@ class PdbClient(object):
                     self.cmdQ.put_nowait(sys.stdin.readline())
             threading.Thread(target=worker, daemon=True).start()
 
-            ##### Main/forever loop #####
+            ##### Forever loop #####
             while run:
                 timed_out = False
 
@@ -74,7 +82,7 @@ class PdbClient(object):
                         sock.connect((self.host, self.port))
                         # Didn't fault so must be success.
                         self.info('Connected to server')
-                        self.commif = sock.makefile('rw')  #, buffering=0)
+                        self.commif = sock.makefile('rw')
 
                     except TimeoutError:
                         # Server is not listening right now. Normal operation.
@@ -87,24 +95,21 @@ class PdbClient(object):
                         self.reset()
 
                     except Exception as e:
-                        # Other errors are considered fatal.
                         self.error(e)
-                        self.reset()
-                        run = False
 
-                ##### Do main work #####
-
-                # Check for server not responding but still connected.
+                ##### Check for server not responding but still connected. #####
                 if self.commif is not None and self.sendts > 0:
                     dur = self.get_msec() - self.sendts
                     if dur > SERVER_RESPONSE_TIME:
                         self.info('Server stopped')
                         self.reset()
 
-                # Anything to send? Check for user input.
+                ##### Anything to send? Check for user input. #####
                 while not self.cmdQ.empty():
                     s = self.cmdQ.get()
-                    self.debug(f'User command: {s}')
+
+                    self.debug(f'User cli command: {make_readable(s)}')
+
                     if s == 'x':  # internal - exit client
                         run = False
                     elif s == 'hh':  # internal - short usage
@@ -112,12 +117,13 @@ class PdbClient(object):
                     else:  # Send any other user input to server.
                         if self.commif is not None:
                             self.commif.write(s + EOL)
-                            # Measure round trip.
+                            self.commif.flush()
+                            # Measure round trip for timeout.
                             self.sendts = self.get_msec()
                         else:
-                            self.info('Not connected')
+                            self.info('Can\'t send command, not connected')
 
-                # Get any server responses.
+                ##### Get any server responses. #####
                 if self.commif is not None:
                     try:
                         # Don't block.
@@ -126,41 +132,48 @@ class PdbClient(object):
                         done = False
                         while not done:
                             s = self.commif.read(1)
-                            if s == '':
-                                done = True
-                            else:
-                                self.tell(s, False)
+
+                            if s == '': done = True
+                            else: rcv_buff = rcv_buff + s
+                            # else: print(make_readable(s))
+
+                            if rcv_buff.endswith(EOL):
+                                self.tell(rcv_buff, False)
+                                self.debug(f'Receive response: {make_readable(rcv_buff)}')
+                                rcv_buff = ''
 
                     except TimeoutError:
+                        # Nothing to read.
                         timed_out = True
                         self.reset()
 
                     except ConnectionError:
+                        # Server disconnected.
                         self.reset()
 
                     except Exception as e:
                         self.error(e)
-                        self.reset()
-                        run = False
 
-                # If there was no timeout, delay a bit.
+                ##### If there was no timeout, delay a bit. #####
                 slp = (float(LOOP_TIME) / 1000.0) if timed_out else 0
                 time.sleep(slp)
 
-        except Exception as e:
-            # An error escaped the controls in the main loop.
-            self.error(e)
-            self.reset()
-            run = False
+        except KeyboardInterrupt:
+            # Hard shutdown, ignore.
+            pass
 
-    def get_config(self):
+        except Exception as e:
+            # Other extraneous errors.
+            self.error(e)
+
+    def get_settings(self):
         '''Hand parse config files. Json parser is too heavy for this app.'''
         # Overlay default and user options.
-        self.parse_record(os.path.join(pkgspath, 'SbotPdb', 'SbotPdb.sublime-settings'), True)
-        self.parse_record(os.path.join(pkgspath, 'User', 'SbotPdb.sublime-settings'), False)
+        self.parse_settings_file(os.path.join(pkgspath, 'SbotPdb', 'SbotPdb.sublime-settings'), True)
+        self.parse_settings_file(os.path.join(pkgspath, 'User', 'SbotPdb.sublime-settings'), False)
 
-    def parse_record(self, fn, required):
-        '''Parse one config line.'''
+    def parse_settings_file(self, fn, required):
+        '''Parse one settings file. Get only the parts client is interested in.'''
         if (not required and not os.path.isfile(fn)):
             return
 
@@ -170,19 +183,16 @@ class PdbClient(object):
                 if s.startswith('\"'):
                     s = s.replace('\"', '').replace(',', '')
                     parts = s.split(':')
-                    name = parts[0]
+                    name = parts[0].strip()
                     val = parts[1].strip()
 
-                    if name == 'host':
-                        self.host = val
-                    elif name == 'port':
-                        self.port = int(val)
-                    else:
-                        pass
+                    if name == 'host': self.host = val
+                    elif name == 'port': self.port = int(val)
+                    elif name == 'internal_message_ind': self.ind = val
 
     def succinct_usage(self):
         '''Simple help.'''
-        self.tell('! Succinct help')
+        self.tell(f'{self.ind} Succinct help')
         lines = [
             "h(elp)         [command]",
             "hh                                           What you see now.",
@@ -230,15 +240,16 @@ class PdbClient(object):
         while not self.cmdQ.empty():
             self.cmdQ.get()
 
-    def error(self, msg):
-        '''Log function.'''
-        self.write_log('ERR', msg, msg.__traceback__ if msg is not None else None)
-        self.tell(f'! Error: {msg} - see the log')
+    def error(self, e):
+        '''Log function. All error() are fatal.'''
+        self.write_log('ERR', str(e), e.__traceback__)
+        self.tell(f'{self.ind} Error: {e} - see the log')
+        sys.exit(1)
 
     def info(self, msg):
         '''Log function.'''
         self.write_log('INF', msg)
-        self.tell(f'! {msg}')
+        self.tell(f'{self.ind} {msg}')
 
     def debug(self, msg):
         '''Log function.'''
@@ -267,7 +278,7 @@ class PdbClient(object):
 
     def tell(self, msg, eol=True):
         '''Tell the user something.'''
-        sys.stdout.write(msg + '\r\n' if eol else msg)
+        sys.stdout.write(msg + EOL if eol else msg)
 
 
 #-----------------------------------------------------------------------------------

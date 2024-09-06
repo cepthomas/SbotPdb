@@ -3,7 +3,6 @@ import os
 import socket
 import sublime
 import sublime_plugin
-import errno
 import pdb
 from . import sbot_common as sc
 
@@ -13,7 +12,8 @@ SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
 ANSI_RESET = '\033[0m'
 
 # Standard delim.
-EOL = '\r\n'
+EOL = '\n'
+# EOL = '\r\n'
 
 
 #-----------------------------------------------------------------------------------
@@ -23,9 +23,10 @@ def plugin_loaded():
 
 
 #-----------------------------------------------------------------------------------
-def plugin_unloaded():
-    '''Ditto.'''
-    pass
+def make_readable(s):
+    '''So we can see things like LF, CR, ESC in log.'''
+    s = s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
+    return s
 
 
 #-----------------------------------------------------------------------------------
@@ -38,15 +39,16 @@ class CommIf(object):
         fh = conn.makefile('rw')
         # Return a file object associated with the socket. https://docs.python.org/3.8/library/socket.html
         self.stream = fh
+        # readline seems to be the only read function used. Blow up if the others show up.
         # self.read = fh.read
-        # self.readline = fh.readline
         # self.readlines = fh.readlines
         self.close = fh.close
         self.flush = fh.flush
         self.fileno = fh.fileno
         # Private stuff.
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
-        self.use_ansi_color = settings.get('use_ansi_color')
+        self.ind = settings.get('internal_message_ind')
+        self.use_color = settings.get('use_color')
         self.current_line_color = settings.get('current_line_color')
         self.exception_line_color = settings.get('exception_line_color')
         self.stack_location_color = settings.get('stack_location_color')
@@ -61,20 +63,10 @@ class CommIf(object):
         try:
             s = self.stream.readline()
             self.last_cmd = s
-            # Log it with some chars made visible.
-            slog = s.replace('\n', '_N').replace('\r', '_R')
-            sc.debug(f'Receive command:{slog}')
+            sc.debug(f'Receive command:{make_readable(s)}')
             return self.last_cmd
         except Exception:
             return ''
-
-    # readline seems to be the only read function used. Blow up if the others show up.
-    # def read(self, size=1):
-    #     s = self.stream.read(size)
-    #     return s
-    # def readlines(self, hint=1):
-    #     s = self.stream.readlines(hint)
-    #     return s
 
     def __iter__(self):
         return self.stream.__iter__()
@@ -84,7 +76,7 @@ class CommIf(object):
         return self.stream.encoding
 
     def write(self, line):
-        '''Write pdb output line to client.'''
+        '''Core pdb calls this to write to cli/client.'''
         # pdb writes lines piecemeal but we want full proper lines.
         # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
 
@@ -94,7 +86,7 @@ class CommIf(object):
                     sc.debug(f'Send response:{s}')
                     color = None
 
-                    if self.use_ansi_color:
+                    if self.use_color:
                         if s.startswith('-> '): color = self.current_line_color
                         elif ' ->' in s: color = self.current_line_color
                         elif s.startswith('>> '): color = self.exception_line_color
@@ -112,41 +104,25 @@ class CommIf(object):
                 # Just collect.
                 self.send_buff += line
 
-        except ConnectionError:
-            # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
+        except ConnectionError:  # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
             # Ignore and retry later.
-            sc.info('Client closed connection.')
-            # self.do_quit()
+            sc.info('Lost connection during write.')
+            # Reset buffer.
+            self.send_buff = ''
 
         except Exception as e:
-            # Other errors are considered fatal.
-            self.do_error(e)
-
-    # def writelines(self, lines):
-    #     '''Write all lines to client. Seems to be unused.'''
-    #     for line in lines:
-    #         self.write(line)
-
-# 2024-09-05 16:31:08.537 ERR sbot_dev.py:356 Unhandled exception ConnectionAbortedError: 
-#   [WinError 10053] An established connection was aborted by the software in your host machine
-
-  # File "C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\sbot_pdb.py", line 121, in write
-  #   self.send(f'{s}{EOL}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{EOL}')
-  # File "C:\Users\cepth\AppData\Roaming\Sublime Text\Packages\SbotPdb\sbot_pdb.py", line 56, in <lambda>
-  #   self.send = lambda data: conn.sendall(data.encode(fh.encoding)) if hasattr(fh, 'encoding') else conn.sendall
+            raise
 
     def writeInfo(self, line):
         '''Write internal non-pdb info to client.'''
         sc.debug(f'Send info:{line}')
-        self.send(f'! {line}{EOL}')
+        self.send(f'{self.ind} {line}{EOL}')
         self.writePrompt()
 
     def writePrompt(self):
         sc.debug('Send prompt')
-        if self.use_ansi_color:
-            self.send(f'\033[{self.prompt_color}m(Pdb) {ANSI_RESET}{EOL}')
-        else:  # As is
-            self.send('(Pdb) ')
+        s = f'\033[{self.prompt_color}m(Pdb) {ANSI_RESET}' if self.use_color else '(Pdb) '
+        self.send(s)
 
 
 #-----------------------------------------------------------------------------------
@@ -168,21 +144,21 @@ class SbotPdb(pdb.Pdb):
                 sock.settimeout(client_connect_timeout)  # Seconds.
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
             sock.bind((host, port))
-            sc.info(f'Session open at {sock.getsockname()}, waiting for connection.')
+            sc.info(f'Socket open at {sock.getsockname()}, waiting for connection.')
             sock.listen(1)
             # Blocks until client connect or timeout.
             conn, address = sock.accept()
 
             # Connected.
-            sc.info(f'Session accepted connection from {repr(address)}.')
+            sc.info(f'Socket accepted connection from {repr(address)}.')
             self.commif = CommIf(conn)
             super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)
             SbotPdb.active_instance = self
 
         except TimeoutError:
             # Timeout waiting for a client to connect.
-            sublime.message_dialog('Session timed out.')
-            sc.info('Session timed out.')
+            sublime.message_dialog('Socket timed out.')
+            sc.info('Socket timed out.')
 
         except Exception as e:
             self.do_error(e)
@@ -197,22 +173,15 @@ class SbotPdb(pdb.Pdb):
             except ConnectionError:
                 # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
                 # Ignore and retry later.
-                sc.info('Client closed connection.')
-                # self.do_quit()
+                sc.info('Lost connection during debugging.')
 
-            # except IOError as e:
-            #     if e.errno == errno.ECONNRESET:
-            #         sc.info('Client closed connection.')
-            #         self.do_quit()
-            #     else:
-            #         self.do_error(e)
-
-            except Exception as e:  # App exceptions actually go to sys.excepthook.
+            except Exception as e:
+                # App exceptions actually go to sys.excepthook.
                 self.do_error(e)
 
     def do_quit(self, arg=None):
-        '''Stopping debugging.'''
-        sc.info('Session quitting.')
+        '''Stopping debugging, exit application.'''
+        sc.info('Socket quitting.')
         if self.commif is not None:
             self.commif.close()
             self.commif = None
@@ -223,7 +192,8 @@ class SbotPdb(pdb.Pdb):
                 self.do_error(e)
 
     def do_error(self, e):
-        '''Bad error handler.'''
+        '''Error handler. All do_error() are fatal.'''
+        print(f'>>> {type(e)} {e}')
         sc.error(f'{e}', e.__traceback__)
         if self.commif is not None:
             self.commif.writeInfo(f'Exception: {e}')

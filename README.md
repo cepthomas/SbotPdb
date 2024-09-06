@@ -32,7 +32,7 @@ Optionally you can use the slightly-smarter ClientTool tool which does all of th
 - ClientTool automatically connects to the server. This means that you can edit/run your plugin code
   without having to restart the client.
 - ClientTool detects dead server by requiring a response for each command sent.
-- Provides some extra information, indicated by `!`.
+- Provides some extra information, indicated by `!`. TODO
 - Has some extra commands:
   - `x` exits the client, also stops the server/debugger.
   - `hh` shows an abbreviated help.
@@ -51,7 +51,19 @@ https://github.com/cepthomas/SbotPdb/tree/main/ClientTool, build, run.
 | host           | TCP host - usually localhost             | default="127.0.0.1"         |
 | port           | TCP port in the range 49152 to 65535     | default=59120               |
 | timeout        | Client connect after set_trace() called  | seconds 0=forever           |
-| use_ansi_color | Server provides ansi color               |                             |
+| use_color | Server provides ansi color               |                             |
+
+
+    // The colors if used. See https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_sample_program_output.png
+    "current_line_color": 93, // yellow
+    "exception_line_color": 92, // green
+    "stack_location_color": 96, // cyan
+    "prompt_color": 94, // blue
+    "error_color": 91, // red
+
+    // Indicate message from application, not pdb.
+    "internal_message_ind": "!",
+
 
 ## Notes
 

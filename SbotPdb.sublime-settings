@@ -9,7 +9,7 @@
     "client_connect_timeout": 5,
 
     // Server provides ansi color.
-    "use_ansi_color": true,
+    "use_color": true,
 
     // The colors if used. See https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_sample_program_output.png
     "current_line_color": 93, // yellow
@@ -17,4 +17,7 @@
     "stack_location_color": 96, // cyan
     "prompt_color": 94, // blue
     "error_color": 91, // red
+
+    // Indicate message from application, not pdb.
+    "internal_message_ind": "!",
 }
