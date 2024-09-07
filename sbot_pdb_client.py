@@ -44,8 +44,7 @@ class PdbClient(object):
         self.get_settings()
 
         if self.host is None or self.port is None or self.ind is None:
-            e = NameError(f'Invalid settings: host:{self.host} port:{self.port} ind:{self.ind}')
-            self.log_error(e)
+            self.log_error(NameError(f'Invalid settings: host:{self.host} port:{self.port} ind:{self.ind}'))
 
     def go(self):
         '''Run the main loop.'''
@@ -81,7 +80,7 @@ class PdbClient(object):
                         self.log_info('Connected to server')
 
                     except TimeoutError:
-                        # Server is not listening right now. Normal operation.
+                        # Server is not running or not listening right now. Normal operation.
                         timed_out = True
                         self.reset()
 
@@ -91,6 +90,7 @@ class PdbClient(object):
                         self.reset()
 
                     except Exception as e:
+                        # Other unexpected error.
                         self.log_error(e)
 
                 ##### Check for server not responding but still connected. #####
@@ -104,19 +104,14 @@ class PdbClient(object):
                 while not self.cmdQ.empty():
                     s = self.cmdQ.get()
 
-                    if s == 'x':  # internal - exit client
-                        run = False
-                    elif s == 'q':  # take over as it misbehaves - exit client
-                        run = False
-                    else:  # Send any other user input to server.
-                        if self.commif is not None:
-                            self.log_debug(f'Send command: {make_readable(s)}')
-                            self.commif.write(s + EOL)
-                            self.commif.flush()
-                            # Measure round trip for timeout.
-                            self.sendts = self.get_msec()
-                        else:
-                            self.log_info('Can\'t execute command - not connected')
+                    if self.commif is not None:
+                        self.log_debug(f'Send command: {make_readable(s)}')
+                        self.commif.write(s + EOL)
+                        self.commif.flush()
+                        # Measure round trip for timeout.
+                        self.sendts = self.get_msec()
+                    else:
+                        self.log_info('Can\'t execute command - not connected')
 
                 ##### Get any server responses. #####
                 if self.commif is not None:
@@ -135,19 +130,6 @@ class PdbClient(object):
                                 # self.log_debug(make_readable(s))
                                 # Reset watchdog.
                                 self.sendts = 0
-
-                            # if s == '':
-                            #     done = True
-                            # else:
-                            #     rcv_buff = rcv_buff + s
-                            #     # print(make_readable(s))
-                            #     # Reset watchdog.
-                            #     self.sendts = 0
-
-                            # if rcv_buff.endswith(EOL):
-                            #     self.tell(rcv_buff, False)
-                            #     self.log_debug(f'Received response: {make_readable(rcv_buff)}')
-                            #     rcv_buff = ''
 
                     except TimeoutError:
                         # Nothing to read.
@@ -267,9 +249,9 @@ def write_log(level, msg, tb=None):
 def excepthook(type, value, tb):
     '''Process unhandled exceptions.'''
 
-    # This happens with hard shutdown of SbotPdb - ignore.
-    if issubclass(type, bdb.BdbQuit):
-        return
+    # # This happens with hard shutdown of SbotPdb - ignore. TODO1 not?
+    # if issubclass(type, bdb.BdbQuit):
+    #     return
 
     write_log('ERR', f'Unhandled exception {type.__name__}: {value}', tb)
     sys.stdout.write(f'Unhandled exception {type.__name__}: {value} - see the log')

@@ -66,14 +66,16 @@ https://github.com/cepthomas/SbotPdb/tree/main/ClientTool, build, run.
 ## Notes
 
 Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
-an unhandled exception. This is also caused by closing the ClientTool if you are using it.
+an unhandled exception. 
+Also ConnectionError...
+This is also caused by closing the ClientTool if you are using it.
 [See](https://stackoverflow.com/a/34936583).
 It is harmless but if it annoys you, add (or edit) this code somewhere in your plugins:
 
 ```python
 import bdb
 def excepthook(type, value, tb):
-    if issubclass(type, bdb.BdbQuit):
+    if issubclass(type, bdb.BdbQuit) or issubclass(type, ConnectionError):
         return
     sys.__excepthook__(type, value, traceback)
 # Connect the last chance hook.

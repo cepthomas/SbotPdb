@@ -56,8 +56,12 @@ class CommIf(object):
             sc.debug(f'Received command: {make_readable(s)}')
             return self.last_cmd
 
+        except ConnectionError:
+            sc.debug(f'Disconnected: {e}')
+            raise
+
         except Exception as e:
-            sc.debug(f'CommIf.readline() exception: {e}')
+            sc.debug(f'CommIf.readline() other exception: {e}')
             self.buff = ''
             raise
 
@@ -94,8 +98,12 @@ class CommIf(object):
                 # Just collect.
                 self.buff += line
 
+        except ConnectionError:
+            sc.debug(f'Disconnected: {e}')
+            raise
+
         except Exception as e:
-            sc.debug(f'CommIf.write() exception: {e}')
+            sc.debug(f'CommIf.write() other exception: {e}')
             self.buff = ''
             raise
 
