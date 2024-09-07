@@ -9,7 +9,7 @@ with the addition of ST plugin hooks.
 
 Built for ST4 on Windows and Linux.
 
-where is log - prob in each plugin
+>>>>> where is log - prob put in each plugin
 
 ## Features
 
@@ -52,8 +52,6 @@ https://github.com/cepthomas/SbotPdb/tree/main/ClientTool, build, run.
 | port           | TCP port in the range 49152 to 65535     | default=59120               |
 | timeout        | Client connect after set_trace() called  | seconds 0=forever           |
 | use_color | Server provides ansi color               |                             |
-
-
     // The colors if used. See https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_sample_program_output.png
     "current_line_color": 93, // yellow
     "exception_line_color": 92, // green
@@ -74,10 +72,10 @@ It is harmless but if it annoys you, add (or edit) this code somewhere in your p
 
 ```python
 import bdb
-def _notify_exception(type, value, tb):
+def excepthook(type, value, tb):
     if issubclass(type, bdb.BdbQuit):
-        sys.__excepthook__(type, value, traceback)
         return
+    sys.__excepthook__(type, value, traceback)
 # Connect the last chance hook.
-sys.excepthook = _notify_exception
+sys.excepthook = excepthook
 ```

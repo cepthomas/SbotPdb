@@ -64,8 +64,8 @@ def do_a_suite(alpha, number):
 
     ret = function_1(5, 9.126)
 
-    # Unhandled exception goes to sys.__excepthook__ or sys.excepthook.
-    function_boom()
+    # Unhandled exception goes to sys.__excepthook__.
+    # function_boom()
 
     ret = function_2([33, 'thanks', 3.56], {'aaa': 111, 'bbb': 222, 'ccc': 333})
 
