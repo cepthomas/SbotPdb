@@ -8,8 +8,11 @@ from . import sbot_common as sc
 
 
 SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
-ANSI_RESET = '\033[0m'
+
+# Delimiter for socket message lines.
 COMM_DELIM = '\n'
+
+# Delimiter for log lines.
 LOG_EOL = '\n'
 
 
@@ -57,12 +60,12 @@ class CommIf(object):
             sc.debug(f'Received command: {make_readable(s)}')
             return self.last_cmd
 
-        except ConnectionError:
-            sc.debug(f'Disconnected: {e}')
+        except ConnectionError as e:
+            sc.debug(f'Disconnected: {type(e)}')
             raise
 
         except Exception as e:
-            sc.debug(f'CommIf.readline() other exception: {e}')
+            sc.debug(f'CommIf.readline() other exception: {str(e)}')
             self.buff = ''
             raise
 
@@ -89,7 +92,7 @@ class CommIf(object):
                         elif 'Error:' in s: color = settings.get('error_color')
                         elif s.startswith('> '): color = settings.get('stack_location_color')
 
-                    self.send(f'{s}{COMM_DELIM}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{COMM_DELIM}')
+                    self.send(f'{s}{COMM_DELIM}' if color is None else f'\033[{color}m{s}\033[0m{COMM_DELIM}')
 
                 self.writePrompt()
 
@@ -99,12 +102,12 @@ class CommIf(object):
                 # Just collect.
                 self.buff += line
 
-        except ConnectionError:
-            sc.debug(f'Disconnected: {e}')
+        except ConnectionError as e:
+            sc.debug(f'Disconnected: {type(e)}')
             raise
 
         except Exception as e:
-            sc.debug(f'CommIf.write() other exception: {e}')
+            sc.debug(f'CommIf.write() other exception: {str(e)}')
             self.buff = ''
             raise
 
@@ -118,7 +121,7 @@ class CommIf(object):
     def writePrompt(self):
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
         pc = settings.get('prompt_color')
-        s = f'\033[{pc}m(Pdb){ANSI_RESET} ' if settings.get('use_color') else '(Pdb) '
+        s = f'\033[{pc}m(Pdb)\033[0m ' if settings.get('use_color') else '(Pdb) '
         self.send(s)
 
 
@@ -160,7 +163,7 @@ class SbotPdb(pdb.Pdb):
 
     def set_trace(self, frame):
         '''Starts the debugger.'''
-        sc.debug(f'set_trace() entry')
+        sc.debug('set_trace() entry')
         if self.commif is not None:
             try:
                 # This blocks until user says done.
@@ -170,7 +173,7 @@ class SbotPdb(pdb.Pdb):
                 # App exceptions actually go to sys.excepthook so this doesn't really do anything.
                 self.do_error(e)
 
-        sc.debug(f'set_trace() exit')
+        sc.debug('set_trace() exit')
         self.do_quit()
 
     def do_quit(self, arg=None):
@@ -191,7 +194,7 @@ class SbotPdb(pdb.Pdb):
             super().do_quit(arg)
         except:
             pass
-        sc.debug(f'do_quit() exit')
+        sc.debug('do_quit() exit')
 
     def do_error(self, e):
         '''Error handler. All are considered fatal. Exit the application. User needs to restart debugger.'''

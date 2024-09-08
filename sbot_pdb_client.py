@@ -19,7 +19,10 @@ SERVER_RESPONSE_TIME = 200  # 100?
 PKGS_PATH = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
 LOG_FN = os.path.join(PKGS_PATH, 'User', '.SbotStore', 'sbot.log')
 
+# Delimiter for socket message lines.
 COMM_DELIM = '\n'
+
+# Delimiter for log lines.
 LOG_EOL = '\n'
 
 
@@ -51,10 +54,8 @@ class PdbClient(object):
         '''Run the main loop.'''
 
         try:
-            run = True
-            # rcv_buff = ''
-
             self.log_info(f'Starting client on {self.host}:{self.port}')
+            run = True
 
             ##### Run user cli input in a thread.
             def worker():
@@ -70,28 +71,26 @@ class PdbClient(object):
                 if self.commif is None:
                     # TCP socket client
                     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
                     # Block with timeout.
                     self.sock.settimeout(float(SERVER_RESPONSE_TIME) / 1000.0)
 
                     try:
-                        self.log_debug('Trying >>> server')
                         self.sock.connect((self.host, self.port))
 
                         # Didn't fault so must be success.
-                        self.log_debug('Before Connected to server')
                         self.commif = self.sock.makefile('rw')
                         self.log_info('Connected to server')
 
                     except TimeoutError:
                         # Server is not running or not listening right now. Normal operation.
-                        self.log_debug('TimeoutError')
                         timed_out = True
                         self.reset()
 
-                    except ConnectionError:
+                    except ConnectionError as e:
                         # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
                         # Ignore and retry later.
-                        self.log_debug('ConnectionError')
+                        self.log_debug(f'ConnectionError: {type(e)}')
                         self.reset()
 
                     except Exception as e:
@@ -102,7 +101,7 @@ class PdbClient(object):
                 if self.commif is not None and self.sendts > 0:
                     dur = self.get_msec() - self.sendts
                     if dur > SERVER_RESPONSE_TIME:
-                        self.log_info('Server stopped listening')
+                        self.log_info('Server not listening')
                         self.reset()
 
                 ##### Anything to send? Check for user input. #####
@@ -110,7 +109,7 @@ class PdbClient(object):
                     s = self.cmdQ.get()
 
                     if self.commif is not None:
-                        self.log_debug(f'Send command: {make_readable(s)}')
+                        # self.log_debug(f'Send command: {make_readable(s)}')
                         self.commif.write(s + COMM_DELIM)
                         self.commif.flush()
                         # Measure round trip for timeout.
@@ -156,12 +155,14 @@ class PdbClient(object):
             self.log_debug('go() run ended')
 
         except KeyboardInterrupt:
-            # Hard shutdown, ignore.
+            # Hard shutdown, ignore and quit.
             pass
 
         except Exception as e:
-            # Other extraneous errors.
+            # Other unexpected errors.
             self.log_error(e)
+
+        self.quit(0)
 
     def get_settings(self):
         '''Hand parse config files. Json parser is too heavy for this app.'''
@@ -187,9 +188,8 @@ class PdbClient(object):
                     elif name == 'port': self.port = int(val)
                     elif name == 'internal_message_ind': self.ind = val
 
-
     def get_msec(self):
-        '''Get elapsed msec.'''
+        '''Get current msec.'''
         return time.perf_counter_ns() / 1000000
 
     def reset(self):
@@ -198,10 +198,10 @@ class PdbClient(object):
         if self.commif is not None:
             self.commif.close()
             self.commif = None
-            
+
         if self.sock is not None:
             self.sock.close()
-            self.sock = None
+        #     self.sock = None
 
         # Reset watchdog.
         self.sendts = 0
@@ -214,7 +214,7 @@ class PdbClient(object):
         write_log('ERR', str(e), e.__traceback__)
         sys.stdout.write(f'{self.ind} Error: {e} - see the log{LOG_EOL}')
         sys.stdout.flush()
-        sys.exit(1)
+        self.quit(1)
 
     def log_info(self, msg):
         '''Log function.'''
@@ -225,6 +225,14 @@ class PdbClient(object):
     def log_debug(self, msg):
         '''Log function.'''
         write_log('DBG', msg)
+
+    def quit(self, code):
+        '''Clean up and go home.'''
+        self.reset()
+        if self.sock is not None:
+            self.sock.close()
+            self.sock = None
+        sys.exit(code)
 
 
 #-----------------------------------------------------------------------------------
