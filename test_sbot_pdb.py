@@ -5,14 +5,14 @@ import sublime
 import sublime_plugin
 from . import sbot_pdb
 
-# Benign reload in case of being edited.
-importlib.reload(sbot_pdb)
 
 
 #-----------------------------------------------------------------------------------
 class SbotPdbDebugCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
+        # Benign reload in case of being edited.
+        importlib.reload(sbot_pdb)
         ret = do_a_suite(number=911, alpha='abcd')
 
 

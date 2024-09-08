@@ -19,7 +19,8 @@ SERVER_RESPONSE_TIME = 200  # 100?
 PKGS_PATH = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
 LOG_FN = os.path.join(PKGS_PATH, 'User', '.SbotStore', 'sbot.log')
 
-EOL = '\n'
+COMM_DELIM = '\n'
+LOG_EOL = '\n'
 
 
 #-----------------------------------------------------------------------------------
@@ -58,7 +59,7 @@ class PdbClient(object):
             ##### Run user cli input in a thread.
             def worker():
                 while run:
-                    self.cmdQ.put_nowait(sys.stdin.readline().replace(EOL, ''))
+                    self.cmdQ.put_nowait(sys.stdin.readline().replace(COMM_DELIM, ''))
             threading.Thread(target=worker, daemon=True).start()
 
             ##### Forever loop #####
@@ -73,20 +74,24 @@ class PdbClient(object):
                     self.sock.settimeout(float(SERVER_RESPONSE_TIME) / 1000.0)
 
                     try:
+                        self.log_debug('Trying >>> server')
                         self.sock.connect((self.host, self.port))
 
                         # Didn't fault so must be success.
+                        self.log_debug('Before Connected to server')
                         self.commif = self.sock.makefile('rw')
                         self.log_info('Connected to server')
 
                     except TimeoutError:
                         # Server is not running or not listening right now. Normal operation.
+                        self.log_debug('TimeoutError')
                         timed_out = True
                         self.reset()
 
                     except ConnectionError:
                         # BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
                         # Ignore and retry later.
+                        self.log_debug('ConnectionError')
                         self.reset()
 
                     except Exception as e:
@@ -106,12 +111,12 @@ class PdbClient(object):
 
                     if self.commif is not None:
                         self.log_debug(f'Send command: {make_readable(s)}')
-                        self.commif.write(s + EOL)
+                        self.commif.write(s + COMM_DELIM)
                         self.commif.flush()
                         # Measure round trip for timeout.
                         self.sendts = self.get_msec()
                     else:
-                        self.log_info('Can\'t execute command - not connected')
+                        self.log_info('Execute command failed - not connected')
 
                 ##### Get any server responses. #####
                 if self.commif is not None:
@@ -121,12 +126,13 @@ class PdbClient(object):
 
                         done = False
                         while not done:
-                            s = self.commif.read(1)
+                            s = self.commif.read(100)
 
                             if s == '':
                                 done = True
                             else:
-                                self.tell(s, False)
+                                sys.stdout.write(s)
+                                sys.stdout.flush()
                                 # self.log_debug(make_readable(s))
                                 # Reset watchdog.
                                 self.sendts = 0
@@ -188,9 +194,11 @@ class PdbClient(object):
 
     def reset(self):
         '''Reset comms, resource management.'''
+
         if self.commif is not None:
             self.commif.close()
             self.commif = None
+            
         if self.sock is not None:
             self.sock.close()
             self.sock = None
@@ -204,22 +212,19 @@ class PdbClient(object):
     def log_error(self, e):
         '''Log function. All error() are considered fatal.'''
         write_log('ERR', str(e), e.__traceback__)
-        self.tell(f'{self.ind} Error: {e} - see the log')
+        sys.stdout.write(f'{self.ind} Error: {e} - see the log{LOG_EOL}')
+        sys.stdout.flush()
         sys.exit(1)
 
     def log_info(self, msg):
         '''Log function.'''
         write_log('INF', msg)
-        self.tell(f'{self.ind} {msg}')
+        sys.stdout.write(f'{self.ind} {msg}{LOG_EOL}')
+        sys.stdout.flush()
 
     def log_debug(self, msg):
         '''Log function.'''
         write_log('DBG', msg)
-
-    def tell(self, msg, eol=True):
-        '''Tell the user something.'''
-        sys.stdout.write(msg + EOL if eol else msg)
-        sys.stdout.flush()
 
 
 #-----------------------------------------------------------------------------------
@@ -233,15 +238,15 @@ def write_log(level, msg, tb=None):
 
     with open(LOG_FN, 'a') as log:
         out_line = f'{time_str} {level} {fn}:{line} {msg}'
-        log.write(out_line + '\n')
+        log.write(out_line + LOG_EOL)
         if tb is not None:
             # The traceback formatter is a bit ugly - clean it up.
             tblines = []
             for s in traceback.format_tb(tb):
                 if len(s) > 0:
                     tblines.append(s[:-1])
-            stb = '\n'.join(tblines)
-            log.write(stb + '\n')
+            stb = LOG_EOL.join(tblines)
+            log.write(stb + LOG_EOL)
         log.flush()
 
 

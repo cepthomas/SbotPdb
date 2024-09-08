@@ -9,7 +9,8 @@ from . import sbot_common as sc
 
 SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
 ANSI_RESET = '\033[0m'
-EOL = '\n'
+COMM_DELIM = '\n'
+LOG_EOL = '\n'
 
 
 #-----------------------------------------------------------------------------------
@@ -88,7 +89,7 @@ class CommIf(object):
                         elif 'Error:' in s: color = settings.get('error_color')
                         elif s.startswith('> '): color = settings.get('stack_location_color')
 
-                    self.send(f'{s}{EOL}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{EOL}')
+                    self.send(f'{s}{COMM_DELIM}' if color is None else f'\033[{color}m{s}{ANSI_RESET}{COMM_DELIM}')
 
                 self.writePrompt()
 
@@ -111,7 +112,7 @@ class CommIf(object):
         '''Write internal non-pdb info to client.'''
         settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
         ind = settings.get('internal_message_ind')
-        self.send(f'{ind} {line}{EOL}')
+        self.send(f'{ind} {line}{COMM_DELIM}')
         self.writePrompt()
 
     def writePrompt(self):
@@ -170,17 +171,22 @@ class SbotPdb(pdb.Pdb):
                 self.do_error(e)
 
         sc.debug(f'set_trace() exit')
+        self.do_quit()
 
     def do_quit(self, arg=None):
         '''Stopping debugging, clean up resources, exit application.'''
         sc.info('Quitting.')
+
         if self.commif is not None:
             self.commif.close()
             self.commif = None
+
         if self.sock is not None:
             self.sock.close()
             self.sock = None
+
         SbotPdb.active_instance = None
+
         try:
             super().do_quit(arg)
         except:
@@ -190,7 +196,7 @@ class SbotPdb(pdb.Pdb):
     def do_error(self, e):
         '''Error handler. All are considered fatal. Exit the application. User needs to restart debugger.'''
         # except ConnectionError: BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
-        sc.error(f'{e}', e.__traceback__)
+        sc.error(f'{str(e)}', e.__traceback__)
         if self.commif is not None:
             self.commif.writeInfo(f'Server exception: {e}')
         self.do_quit()
