@@ -9,15 +9,20 @@ from . import sbot_pdb
 
 #-----------------------------------------------------------------------------------
 class SbotPdbDebugCommand(sublime_plugin.TextCommand):
+    '''Run the plugin from a menu item:
+    { "caption": "Run sbot_pdb", "command": "sbot_pdb_debug" }
+    '''
 
     def run(self, edit):
         # Benign reload in case of being edited.
         importlib.reload(sbot_pdb)
+        # Run the code under debug.
         ret = do_a_suite(number=911, alpha='abcd')
 
 
 #----------------------------------------------------------
 class MyClass(object):
+    '''A simple object.'''
 
     def __init__(self, name, tags, arg):
         self._name = name
@@ -35,6 +40,7 @@ class MyClass(object):
 
 #----------------------------------------------------------
 def function_1(a1: int, a2: float):
+    '''A simple function.'''
     cl1 = MyClass('number 1', [45, 78, 23], a1)
     cl2 = MyClass('number 2', [100, 101, 102], a2)
     ret = f'answer is cl1:{cl1.do_something(a1)}...cl2:{cl2.do_something(a2)}'
@@ -47,24 +53,26 @@ def function_1(a1: int, a2: float):
 
 #----------------------------------------------------------
 def function_2(a_list, a_dict):
+    '''A simple function.'''
     return len(a_list) + len(a_dict)
 
 
 #----------------------------------------------------------
 def function_boom():
-    # Cause unhandled exception.
+    '''A function that causes an unhandled exception.'''
     return 1 / 0
 
 
 #----------------------------------------------------------
 def do_a_suite(alpha, number):
+    '''Main test code.'''
 
-    # Breakpoint here. Step through and examine the code.
+    # Set a breakpoint here then step through and examine the code.
     sbot_pdb.set_trace()
 
     ret = function_1(5, 9.126)
 
-    # Unhandled exception goes to sys.__excepthook__.
+    # Unhandled exception actually goes to sys.__excepthook__.
     # function_boom()
 
     ret = function_2([33, 'thanks', 3.56], {'aaa': 111, 'bbb': 222, 'ccc': 333})

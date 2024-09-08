@@ -7,77 +7,66 @@ plugin debugging.
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
 with the addition of ST plugin hooks.
 
-Built for ST4 on Windows and Linux.
-
->>>>> where is log - prob put in each plugin
+Built for ST4 on Windows. Linux probably works but is untested.
 
 ## Features
 
-- Use generic tcp client - linux terminal, windows putty, etc.
-- Option for colorizing of output.
+- Uses generic tcp client - linux terminal, windows putty, etc. Or better yet, use the [Fancy Client](#fancy-client).
+- Option for colorizing of output. Totally unnecessary but cute.
 - Optional timeout can be set to force socket closure which unfreezes the ST application rather
   than having to forcibly shut it down.
 - Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`, run the plugin,
   and then connect to it with your client. You can then execute pdb commands.
 
-See [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
+Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
 
 ![Plugin Pdb](cli1.png)
 
+## Fancy Client
 
-## ClientTool
-
-Optionally you can use the slightly-smarter ClientTool tool which does all of the above plus:
-- Reads the same settings file as Plugin Pdb so no fiddling with hosts.
-- ClientTool automatically connects to the server. This means that you can edit/run your plugin code
+Optionally you can use the smarter `sbot_pdb_client.py` script which does all of the above plus:
+- Reads the same settings file as `Plugin Pdb` so no fiddling with hosts.
+- Automatically connects to the server. This means that you can edit/run your plugin code
   without having to restart the client.
-- ClientTool detects dead server by requiring a response for each command sent.
-- Provides some extra information, indicated by `!`. TODO
-- Has some extra commands:
-  - `x` exits the client, also stops the server/debugger.
-  - `hh` shows an abbreviated help.
+- Detects unresponsive server by requiring a response for each command sent.
+- Provides some extra system status information, indicated by `!` (or marker of your choosing).
+- Workflow is similar to the above except you can now reload/run the plugin code as part of your dev/edit cycle.
+- Use ctrl-C to exit the client. The plugin will also stop/unblock.
 
-ClientTool is Windows only but probably could work on linux.
-Currently you need to build this yourself using VS 2022. Pull the source from
-https://github.com/cepthomas/SbotPdb/tree/main/ClientTool, build, run.
-
-
-![ClientTool](cli2.png)
+![Fancy Client](cli2.png)
 
 ## Settings
 
-| Setting        | Description                              | Options                     |
-| :--------      | :-------                                 | :------                     |
-| host           | TCP host - usually localhost             | default="127.0.0.1"         |
-| port           | TCP port in the range 49152 to 65535     | default=59120               |
-| timeout        | Client connect after set_trace() called  | seconds 0=forever           |
-| use_color | Server provides ansi color               |                             |
-    // The colors if used. See https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_sample_program_output.png
-    "current_line_color": 93, // yellow
-    "exception_line_color": 92, // green
-    "stack_location_color": 96, // cyan
-    "prompt_color": 94, // blue
-    "error_color": 91, // red
+| Setting              | Description                              | Options              |
+| :--------            | :-------                                 | :------              |
+| host                 | TCP host - usually localhost             | default="127.0.0.1"  |
+| port                 | TCP port in the range 49152 to 65535     | default=59120        |
+| timeout              | Client connect after set_trace() called  | seconds 0=forever    |
+| use_color            | Server provides ansi color - below       | true OR false        |
+| internal_message_ind | Indicate internal message (not pdb)      | default="!"          |
+| current_line_color   | Ansi color code                          | default=93 (yellow)  |
+| exception_line_color | Ansi color code                          | default=92 (green)   |
+| stack_location_color | Ansi color code                          | default=96 (cyan)    |
+| prompt_color         | Ansi color code                          | default=94 (blue)    |
+| error_color          | Ansi color code                          | default=91 (red)     |
 
-    // Indicate message from application, not pdb.
-    "internal_message_ind": "!",
+Ansi codes from https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_sample_program_output.png.
 
 
 ## Notes
 
 Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
-an unhandled exception. 
-Also ConnectionError...
-This is also caused by closing the ClientTool if you are using it.
-[See](https://stackoverflow.com/a/34936583).
-It is harmless but if it annoys you, add (or edit) this code somewhere in your plugins:
-
+an unhandled `BdbQuit` [exception](https://stackoverflow.com/a/34936583).
+Similarly, unhandled `ConnectionError` can occur. They are harmless but if it annoys you,
+add (or edit) this code somewhere in your plugins:
 ```python
 import bdb
 def excepthook(type, value, tb):
     if issubclass(type, bdb.BdbQuit) or issubclass(type, ConnectionError):
-        return
+        return  # ignore
     sys.__excepthook__(type, value, traceback)
 # Connect the last chance hook.
 sys.excepthook = excepthook
 ```
+
+- Log file is in $APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log.

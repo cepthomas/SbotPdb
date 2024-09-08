@@ -57,7 +57,7 @@ class CommIf(object):
         try:
             s = self.stream.readline()
             self.last_cmd = s
-            sc.debug(f'Received command: {make_readable(s)}')
+            # sc.debug(f'Received command: {make_readable(s)}')
             return self.last_cmd
 
         except ConnectionError as e:
@@ -203,6 +203,7 @@ class SbotPdb(pdb.Pdb):
         if self.commif is not None:
             self.commif.writeInfo(f'Server exception: {e}')
         self.do_quit()
+
 
 #-----------------------------------------------------------------------------------
 def make_readable(s):

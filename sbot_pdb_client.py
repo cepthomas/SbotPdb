@@ -262,21 +262,15 @@ def write_log(level, msg, tb=None):
 def excepthook(type, value, tb):
     '''Process unhandled exceptions.'''
 
-    # # This happens with hard shutdown of SbotPdb - ignore. TODO1 not?
-    # if issubclass(type, bdb.BdbQuit):
-    #     return
-
     write_log('ERR', f'Unhandled exception {type.__name__}: {value}', tb)
     sys.stdout.write(f'Unhandled exception {type.__name__}: {value} - see the log')
     sys.exit(1)
-    # sys.__excepthook__(type, value, traceback)
 
 
 #-----------------------------------------------------------------------------------
 def make_readable(s):
     '''So we can see things like LF, CR, ESC in log.'''
-    s = s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
-    return s
+    return s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
 
 
 #-----------------------------------------------------------------------------------
