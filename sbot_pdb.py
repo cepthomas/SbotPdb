@@ -1,9 +1,10 @@
 import sys
 import os
 import socket
+import subprocess as sp
+import pdb
 import sublime
 import sublime_plugin
-import pdb
 from . import sbot_common as sc
 
 

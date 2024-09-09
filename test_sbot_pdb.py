@@ -8,9 +8,9 @@ from . import sbot_pdb
 
 
 #-----------------------------------------------------------------------------------
-class SbotPdbDebugCommand(sublime_plugin.TextCommand):
+class SbotPdbTestCommand(sublime_plugin.TextCommand):
     '''Run the plugin from a menu item:
-    { "caption": "Run sbot_pdb", "command": "sbot_pdb_debug" }
+    { "caption": "Run sbot pdb test", "command": "sbot_pdb_test" },
     '''
 
     def run(self, edit):

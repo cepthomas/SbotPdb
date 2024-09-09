@@ -47,6 +47,8 @@ class PdbClient(object):
         self.ind = None
         self.get_settings()
 
+        self.log_debug(f'Constructing client')
+
         if self.host is None or self.port is None or self.ind is None:
             self.log_error(NameError(f'Invalid settings: host:{self.host} port:{self.port} ind:{self.ind}'))
 

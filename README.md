@@ -18,9 +18,14 @@ Built for ST4 on Windows. Linux probably works but is untested.
 - Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`, run the plugin,
   and then connect to it with your client. You can then execute pdb commands.
 
-Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
-
 ![Plugin Pdb](cli1.png)
+
+
+Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
+It's usually handy to add a command like this in one of your menus:
+```json
+{ "caption": "Run my pdb test", "command": "sbot_pdb_test" },
+```
 
 ## Fancy Client
 
@@ -55,7 +60,7 @@ Ansi codes from https://en.wikipedia.org/wiki/ANSI_escape_code#/media/File:ANSI_
 
 ## Notes
 
-Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
+- Because of the nature of remote debugging, issuing a `q(uit)` command instead of `c(ont)` causes
 an unhandled `BdbQuit` [exception](https://stackoverflow.com/a/34936583).
 Similarly, unhandled `ConnectionError` can occur. They are harmless but if it annoys you,
 add (or edit) this code somewhere in your plugins:
@@ -69,4 +74,6 @@ def excepthook(type, value, tb):
 sys.excepthook = excepthook
 ```
 
-- Log file is in $APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log.
+- Note that sublime is blocked while running the debugger so you can't edit files in that state.
+
+- Log file is in `$APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log`.
