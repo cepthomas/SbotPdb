@@ -76,4 +76,6 @@ sys.excepthook = excepthook
 
 - Note that sublime is blocked while running the debugger so you can't edit files in that state.
 
-- Log file is in `$APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log`.
+- `sbot_common.py` contains miscellaneous common components primarily for internal use by the sbot family.
+  This includes a very simple logger primarily for user-facing information, syntax errors and the like.
+  Log file is in $APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log.
