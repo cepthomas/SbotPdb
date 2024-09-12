@@ -7,7 +7,7 @@ plugin debugging.
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
 with the addition of ST plugin hooks.
 
-Built for ST4 on Windows. Linux probably works but is untested.
+Built for ST4 on Windows. Linux should work but is untested.
 
 ## Features
 
