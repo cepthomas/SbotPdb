@@ -15,7 +15,7 @@ Built for ST4 on Windows. Linux should work but is untested.
 - Option for colorizing of output. Totally unnecessary but cute.
 - Optional timeout can be set to force socket closure which unfreezes the ST application rather
   than having to forcibly shut it down.
-- Work flow is to set a hard breakpoint using `sbot_pdb.set_trace()`, run the plugin,
+- Work flow is to set a hard breakpoint using `sbot_pdb.breakpoint()`, run the plugin,
   and then connect to it with your client. You can then execute pdb commands.
 
 ![Plugin Pdb](cli1.png)
@@ -46,7 +46,7 @@ Optionally you can use the smarter `sbot_pdb_client.py` script which does all of
 | :--------            | :-------                                 | :------              |
 | host                 | TCP host - usually localhost             | default="127.0.0.1"  |
 | port                 | TCP port in the range 49152 to 65535     | default=59120        |
-| timeout              | Client connect after set_trace() called  | seconds 0=forever    |
+| timeout              | Client connect after breakpoint() called | seconds 0=forever    |
 | use_color            | Server provides ansi color - below       | true OR false        |
 | internal_message_ind | Indicate internal message (not pdb)      | default="!"          |
 | current_line_color   | Ansi color code                          | default=93 (yellow)  |

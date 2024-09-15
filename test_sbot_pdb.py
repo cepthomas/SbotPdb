@@ -68,7 +68,7 @@ def do_a_suite(alpha, number):
     '''Main test code.'''
 
     # Set a breakpoint here then step through and examine the code.
-    sbot_pdb.set_trace()
+    sbot_pdb.breakpoint()
 
     ret = function_1(5, 9.126)
 

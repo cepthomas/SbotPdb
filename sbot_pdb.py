@@ -1,5 +1,6 @@
 import sys
 import os
+import io
 import socket
 import subprocess as sp
 import pdb
@@ -44,6 +45,7 @@ class CommIf(object):
         self.close = fh.close
         self.flush = fh.flush
         self.fileno = fh.fileno
+        return fh
 
     @property
     def encoding(self):
@@ -138,9 +140,9 @@ class SbotPdb(pdb.Pdb):
             self.active_instance = None
 
             settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
-            host = settings.get('host')
-            port = settings.get('port')
-            client_connect_timeout = settings.get('client_connect_timeout')
+            host = str(settings.get('host'))
+            port = int(str(settings.get('port')))
+            client_connect_timeout = int(str(settings.get('client_connect_timeout')))
 
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if client_connect_timeout > 0:
@@ -162,9 +164,9 @@ class SbotPdb(pdb.Pdb):
         except Exception as e:
             self.do_error(e)
 
-    def set_trace(self, frame):
+    def breakpoint(self, frame):
         '''Starts the debugger.'''
-        sc.debug('set_trace() entry')
+        sc.debug('breakpoint() entry')
         if self.commif is not None:
             try:
                 # This blocks until user says done.
@@ -174,7 +176,7 @@ class SbotPdb(pdb.Pdb):
                 # App exceptions actually go to sys.excepthook so this doesn't really do anything.
                 self.do_error(e)
 
-        sc.debug('set_trace() exit')
+        sc.debug('breakpoint() exit')
         self.do_quit()
 
     def do_quit(self, arg=None):
@@ -214,7 +216,7 @@ def make_readable(s):
 
 
 #-----------------------------------------------------------------------------------
-def set_trace():
-    '''Opens a remote PDB using standard syntax. See test_sbot_pdb.py.'''
+def breakpoint():
+    '''Opens a remote PDB. See test_sbot_pdb.py.'''
     spdb = SbotPdb()
-    spdb.set_trace(sys._getframe().f_back)
+    spdb.breakpoint(sys._getframe().f_back)
