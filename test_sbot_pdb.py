@@ -1,7 +1,4 @@
-import sys
-import datetime
 import importlib
-import sublime
 import sublime_plugin
 from . import sbot_pdb
 
@@ -14,10 +11,12 @@ class SbotPdbTestCommand(sublime_plugin.TextCommand):
     '''
 
     def run(self, edit):
+        del edit
         # Benign reload in case of being edited.
         importlib.reload(sbot_pdb)
         # Run the code under debug.
         ret = do_a_suite(number=911, alpha='abcd')
+        print(ret)
 
 
 #----------------------------------------------------------
@@ -33,7 +32,7 @@ class MyClass(object):
         res = f'{self._arg}-user-{arg}'
         return res
 
-    def class_boom(self, arg):
+    def class_boom(self):
         # Cause unhandled exception.
         return 1 / 0
 
@@ -46,7 +45,7 @@ def function_1(a1: int, a2: float):
     ret = f'answer is cl1:{cl1.do_something(a1)}...cl2:{cl2.do_something(a2)}'
 
     # Play with exception handling.
-    # ret = f'{cl1.class_boom(a2)}'
+    # ret = f'{cl1.class_boom()}'
 
     return ret
 
@@ -70,7 +69,7 @@ def do_a_suite(alpha, number):
     # Set a breakpoint here then step through and examine the code.
     sbot_pdb.breakpoint()
 
-    ret = function_1(5, 9.126)
+    ret = function_1(number, len(alpha))
 
     # Unhandled exception actually goes to sys.__excepthook__.
     # function_boom()

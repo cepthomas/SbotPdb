@@ -6,7 +6,6 @@ import threading
 import queue
 import datetime
 import traceback
-import bdb
 
 
 # Human polling time in msec.
@@ -123,7 +122,7 @@ class PdbClient(object):
                 if self.commif is not None:
                     try:
                         # Don't block.
-                        self.sock.settimeout(0)
+                        self.sock.settimeout(0)  # pyright: ignore
 
                         done = False
                         while not done:

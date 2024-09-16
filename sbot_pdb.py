@@ -1,11 +1,8 @@
 import sys
-import os
-import io
 import socket
-import subprocess as sp
 import pdb
 import sublime
-import sublime_plugin
+# import sublime_plugin
 from . import sbot_common as sc
 
 
@@ -56,6 +53,7 @@ class CommIf(object):
         self.conn.sendall(s.encode())
 
     def readline(self, size=1):
+        del size
         '''Core pdb calls this to read from cli/client. Captures the last user command.'''
         try:
             s = self.stream.readline()
@@ -158,7 +156,7 @@ class SbotPdb(pdb.Pdb):
             # Connected.
             sc.info(f'Server accepted connection from {repr(address)}.')
             self.commif = CommIf(conn)
-            super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)
+            super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)  # pyright: ignore
             SbotPdb.active_instance = self
 
         except Exception as e:
