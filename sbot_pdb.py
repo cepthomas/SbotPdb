@@ -42,7 +42,6 @@ class CommIf(object):
         self.close = fh.close
         self.flush = fh.flush
         self.fileno = fh.fileno
-        return fh
 
     @property
     def encoding(self):
@@ -61,7 +60,7 @@ class CommIf(object):
             # sc.debug(f'Received command: {make_readable(s)}')
             return self.last_cmd
 
-        except ConnectionError as e:
+        except (ConnectionError, socket.timeout) as e:
             sc.debug(f'Disconnected: {type(e)}')
             raise
 
@@ -103,7 +102,7 @@ class CommIf(object):
                 # Just collect.
                 self.buff += line
 
-        except ConnectionError as e:
+        except (ConnectionError, socket.timeout) as e:
             sc.debug(f'Disconnected: {type(e)}')
             raise
 
@@ -159,8 +158,17 @@ class SbotPdb(pdb.Pdb):
             super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)  # pyright: ignore
             SbotPdb.active_instance = self
 
+        except (ConnectionError, socket.timeout) as e:
+            sc.info(f'Connection timed out: {str(e)}')
+            sublime.message_dialog('Connection timed out, try again')
+            self.do_quit()
+
         except Exception as e:
-            self.do_error(e)
+            # Other error handler. All are considered fatal. Exit the application. User needs to restart debugger.
+            sc.error(f'{type(e)} {str(e)}', e.__traceback__)
+            if self.commif is not None:
+                self.commif.writeInfo(f'Server exception: {e}')
+            self.do_quit()
 
     def breakpoint(self, frame):
         '''Starts the debugger.'''
@@ -172,7 +180,7 @@ class SbotPdb(pdb.Pdb):
 
             except Exception as e:
                 # App exceptions actually go to sys.excepthook so this doesn't really do anything.
-                self.do_error(e)
+                sc.error(f'{str(e)}', e.__traceback__)
 
         sc.debug('breakpoint() exit')
         self.do_quit()
@@ -196,14 +204,6 @@ class SbotPdb(pdb.Pdb):
         except:
             pass
         sc.debug('do_quit() exit')
-
-    def do_error(self, e):
-        '''Error handler. All are considered fatal. Exit the application. User needs to restart debugger.'''
-        # except ConnectionError: BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError.
-        sc.error(f'{str(e)}', e.__traceback__)
-        if self.commif is not None:
-            self.commif.writeInfo(f'Server exception: {e}')
-        self.do_quit()
 
 
 #-----------------------------------------------------------------------------------
