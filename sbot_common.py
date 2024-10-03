@@ -8,6 +8,7 @@ import pathlib
 import shutil
 import subprocess
 import sublime
+import sublime_plugin
 
 
 #-----------------------------------------------------------------------------------
