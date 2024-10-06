@@ -21,10 +21,10 @@ Built for ST4 on Windows. Linux should work but is untested.
 ![Plugin Pdb](cli1.png)
 
 
-Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/test_sbot_pdb.py).
+Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/example.py).
 It's usually handy to add a command like this in one of your menus:
 ```json
-{ "caption": "Run my pdb test", "command": "sbot_pdb_test" },
+{ "caption": "Run pdb example", "command": "sbot_pdb_example" },
 ```
 
 ## Fancy Client

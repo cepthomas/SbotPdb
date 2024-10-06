@@ -3,11 +3,10 @@ import sublime_plugin
 from . import sbot_pdb
 
 
-
 #-----------------------------------------------------------------------------------
-class SbotPdbTestCommand(sublime_plugin.TextCommand):
+class SbotPdbExampleCommand(sublime_plugin.TextCommand):
     '''Run the plugin from a menu item:
-    { "caption": "Run sbot pdb test", "command": "sbot_pdb_test" },
+    { "caption": "Run sbot pdb example", "command": "sbot_pdb_example" },
     '''
 
     def run(self, edit):
@@ -64,7 +63,7 @@ def function_boom():
 
 #----------------------------------------------------------
 def do_a_suite(alpha, number):
-    '''Main test code.'''
+    '''Main code.'''
 
     # Set a breakpoint here then step through and examine the code.
     sbot_pdb.breakpoint()
