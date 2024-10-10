@@ -2,7 +2,7 @@ import sys
 import socket
 import pdb
 import sublime
-# import sublime_plugin
+import sublime_plugin
 from . import sbot_common as sc
 
 
