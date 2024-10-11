@@ -15,7 +15,7 @@ class SbotPdbExampleCommand(sublime_plugin.TextCommand):
         importlib.reload(sbot_pdb)
         # Run the code under debug.
         ret = do_a_suite(number=911, alpha='abcd')
-        print(ret)
+        print('ret:', ret)
 
 
 #----------------------------------------------------------

@@ -20,12 +20,21 @@ Built for ST4 on Windows. Linux should work but is untested.
 
 ![Plugin Pdb](cli1.png)
 
+## Usage
 
 Typical usage is demonstrated with [example](https://github.com/cepthomas/SbotPdb/blob/main/example.py).
 It's usually handy to add a command like this in one of your menus:
 ```json
 { "caption": "Run pdb example", "command": "sbot_pdb_example" },
 ```
+
+To use in your plugin the easiest thing is:
+- Copy `sbot_pdb.py` into your plugin directory.
+- Add this at the place you want to break:
+
+  `from . import sbot_pdb; sbot_pdb.breakpoint()`
+- Run your client.
+- Run your plugin.
 
 ## Fancy Client
 
@@ -70,6 +79,7 @@ def excepthook(type, value, tb):
     if issubclass(type, bdb.BdbQuit) or issubclass(type, ConnectionError):
         return  # ignore
     sys.__excepthook__(type, value, traceback)
+
 # Connect the last chance hook.
 sys.excepthook = excepthook
 ```
