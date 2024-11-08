@@ -16,7 +16,7 @@ SERVER_RESPONSE_TIME = 200  # 100?
 
 # Some paths.
 PKGS_PATH = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages')
-LOG_FN = os.path.join(PKGS_PATH, 'User', '.SbotStore', 'sbot.log')
+LOG_FN = os.path.join(PKGS_PATH, 'User', 'PluginPdb', 'PluginPdb.log')
 
 # Delimiter for socket message lines.
 COMM_DELIM = '\n'

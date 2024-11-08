@@ -6,8 +6,6 @@ import sublime_plugin
 from . import sbot_common as sc
 
 
-SBOTPDB_SETTINGS_FILE = "SbotPdb.sublime-settings"
-
 # Delimiter for socket message lines.
 COMM_DELIM = '\n'
 
@@ -18,6 +16,7 @@ LOG_EOL = '\n'
 #-----------------------------------------------------------------------------------
 def plugin_loaded():
     '''Called per plugin instance.'''
+    sc.init('PluginPdb')
     sc.debug(f'plugin_loaded() {__package__}')
 
 
@@ -78,7 +77,7 @@ class CommIf(object):
             # pdb writes lines piecemeal but we want full proper lines.
             # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
             if '(Pdb)' in line:
-                settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+                settings = sublime.load_settings(sc.get_settings_fn())
 
                 for s in self.buff.splitlines():
                     # sc.debug(f'Send response: {s}')
@@ -113,13 +112,13 @@ class CommIf(object):
 
     def writeInfo(self, line):
         '''Write internal non-pdb info to client.'''
-        settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+        settings = sublime.load_settings(sc.get_settings_fn())
         ind = settings.get('internal_message_ind')
         self.send(f'{ind} {line}{COMM_DELIM}')
         self.writePrompt()
 
     def writePrompt(self):
-        settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+        settings = sublime.load_settings(sc.get_settings_fn())
         pc = settings.get('prompt_color')
         s = f'\033[{pc}m(Pdb)\033[0m ' if settings.get('use_color') else '(Pdb) '
         self.send(s)
@@ -136,7 +135,7 @@ class SbotPdb(pdb.Pdb):
             self.commif = None
             self.active_instance = None
 
-            settings = sublime.load_settings(SBOTPDB_SETTINGS_FILE)
+            settings = sublime.load_settings(sc.get_settings_fn())
             host = str(settings.get('host'))
             port = int(str(settings.get('port')))
             client_connect_timeout = int(str(settings.get('client_connect_timeout')))
