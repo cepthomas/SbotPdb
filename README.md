@@ -7,7 +7,7 @@ plugin debugging.
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)
 with the addition of ST plugin hooks.
 
-Built for ST4 on Windows. Linux should work but is untested.
+Built for ST4 on Windows. Linux and OSX should be ok but are minimally tested - PRs welcome.
 
 ## Features
 
@@ -88,4 +88,4 @@ sys.excepthook = excepthook
 
 - `sbot_common.py` contains miscellaneous common components primarily for internal use by the sbot family.
   This includes a very simple logger primarily for user-facing information, syntax errors and the like.
-  Log file is in $APPDATA\Sublime Text\Packages\User\.SbotStore\sbot.log.
+  Log file is in $APPDATA\Sublime Text\Packages\User\PluginPdb\PluginPdb.log.
