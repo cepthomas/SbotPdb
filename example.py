@@ -5,9 +5,7 @@ from . import sbot_pdb
 
 #-----------------------------------------------------------------------------------
 class SbotPdbExampleCommand(sublime_plugin.TextCommand):
-    '''Run the plugin from a menu item:
-    { "caption": "Run sbot pdb example", "command": "sbot_pdb_example" },
-    '''
+    '''Run the plugin from a menu item.'''
 
     def run(self, edit):
         del edit

@@ -16,22 +16,41 @@ _config = None
 # Where to log.
 _log_fn = '???'
 
+print('>>> load sbot_pdb module')
+
+# global _config, _log_fn
+dir, _ = os.path.split(__file__)
+fn = os.path.join(dir, 'config.json')
+
+try:
+    with open(fn, 'r') as fp:
+        _config = json.load(fp)
+        # print(_config)
+        _log_fn = os.path.join(dir, 'sbot_pdb.log')
+        print('>>> 10', _log_fn)
+except Exception as e:
+    # No logging yet.
+    sublime.message_dialog(f'Error reading config file {fn}: {e}')
+
 
 #-----------------------------------------------------------------------------------
 def plugin_loaded():
     '''Read the config.'''
-    global _config, _log_fn
-    dir, _ = os.path.split(__file__)
-    fn = os.path.join(dir, 'config.json')
+    print('>>> plugin_loaded()')
 
-    try:
-        with open(fn, 'r') as fp:
-            _config = json.load(fp)
-            # print(_config)
-            _log_fn = os.path.join(dir, 'sbot_pdb.log')
-    except Exception as e:
-        # No logging yet.
-        sublime.message_dialog(f'Error reading config file {fn}: {e}')
+    # global _config, _log_fn
+    # dir, _ = os.path.split(__file__)
+    # fn = os.path.join(dir, 'config.json')
+
+    # try:
+    #     with open(fn, 'r') as fp:
+    #         _config = json.load(fp)
+    #         # print(_config)
+    #         _log_fn = os.path.join(dir, 'sbot_pdb.log')
+    #         print('>>> 10', _log_fn)
+    # except Exception as e:
+    #     # No logging yet.
+    #     sublime.message_dialog(f'Error reading config file {fn}: {e}')
 
 
 #-----------------------------------------------------------------------------------
@@ -150,6 +169,7 @@ class SbotPdb(pdb.Pdb):
             self.sock = None
             self.commif = None
             self.active_instance = None
+            print('>>> 12', _log_fn, _config)
 
             # settings = sublime.load_settings(sc.get_settings_fn())
             host = _config['host']
@@ -182,6 +202,8 @@ class SbotPdb(pdb.Pdb):
             self.do_quit()
 
         except Exception as e:
+            print('>>> 15', _log_fn, str(e))
+
             # Other error handler. All are considered fatal. Exit the application. User needs to restart debugger.
             log(f'{type(e)} {str(e)}')
             # sc.error(f'{type(e)} {str(e)}', e.__traceback__)
@@ -249,5 +271,7 @@ def make_readable(s):
 #-----------------------------------------------------------------------------------
 def breakpoint():
     '''Opens a remote PDB. See test_sbot_pdb.py.'''
+    print('>>> 20', _log_fn)
+
     spdb = SbotPdb()
     spdb.breakpoint(sys._getframe().f_back)
