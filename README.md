@@ -29,7 +29,7 @@ It's usually handy to add a command like this in one of your menus:
 ```
 
 To use in your plugin the easiest thing is:
-- Copy `sbot_pdb.py` into your plugin directory.
+- Copy `sbot_pdb.py` into your plugin directory. TODO1 broken now!
 - Add this at the place you want to break:
 
   `from . import sbot_pdb; sbot_pdb.breakpoint()`

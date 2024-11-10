@@ -16,7 +16,6 @@ LOG_EOL = '\n'
 #-----------------------------------------------------------------------------------
 def plugin_loaded():
     '''Called per plugin instance.'''
-    sc.init('PluginPdb')
     sc.debug(f'plugin_loaded() {__package__}')
 
 
