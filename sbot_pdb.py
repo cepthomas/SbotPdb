@@ -1,59 +1,55 @@
 import sys
 import socket
 import pdb
-import json
 import os
 import datetime
+import traceback
 import sublime
 
 
+#------------------------------------------------------------------------------
+#------------------------- Configuration start --------------------------------
+#------------------------------------------------------------------------------
+
+# Where to log. Usually same as the client log. None indicates no logging.
+LOG_FN = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages', 'User', '_Test', 'ppdb.log')
+
+# TCP host.
+HOST = '127.0.0.1'
+
+# TCP port
+PORT = 59120
+
+# Client connect seconds after breakpoint() called 0=forever
+CONNECT_TIMEOUT = 5
+
+# Indicate internal message (not pdb)
+MSG_IND = '!'
+
+# Server provides ansi color (https://en.wikipedia.org/wiki/ANSI_escape_code)
+USE_COLOR = True
+CURRENT_LINE_COLOR = 93 # yellow
+EXCEPTION_LINE_COLOR = 92 # green
+STACK_LOCATION_COLOR = 96 # cyan
+PROMPT_COLOR = 94 # blue
+ERROR_COLOR = 91 # red
+
 # Delimiter for socket message lines.
-_comm_delim = '\n'
+MDEL = '\n'
 
-# Configuration.
-_config = None
-
-# Where to log.
-_log_fn = '???'
-
-print('>>> load sbot_pdb module')
-
-# global _config, _log_fn
-dir, _ = os.path.split(__file__)
-fn = os.path.join(dir, 'config.json')
-
-try:
-    with open(fn, 'r') as fp:
-        _config = json.load(fp)
-        # print(_config)
-        _log_fn = os.path.join(dir, 'sbot_pdb.log')
-        print('>>> 10', _log_fn)
-except Exception as e:
-    # No logging yet.
-    sublime.message_dialog(f'Error reading config file {fn}: {e}')
+#------------------------------------------------------------------------------
+#------------------------- Configuration end ----------------------------------
+#------------------------------------------------------------------------------
 
 
-#-----------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
 def plugin_loaded():
-    '''Read the config.'''
-    print('>>> plugin_loaded()')
-
-    # global _config, _log_fn
-    # dir, _ = os.path.split(__file__)
-    # fn = os.path.join(dir, 'config.json')
-
-    # try:
-    #     with open(fn, 'r') as fp:
-    #         _config = json.load(fp)
-    #         # print(_config)
-    #         _log_fn = os.path.join(dir, 'sbot_pdb.log')
-    #         print('>>> 10', _log_fn)
-    # except Exception as e:
-    #     # No logging yet.
-    #     sublime.message_dialog(f'Error reading config file {fn}: {e}')
+    '''Hello.'''
+    write_log('DBG', 'sbot_pdb plugin_loaded()')
 
 
-#-----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 class CommIf(object):
     '''
     Read/write interface to socket. Makes server socket look like a file.
@@ -80,7 +76,7 @@ class CommIf(object):
         return self.stream.encoding
 
     def send(self, s):
-        # log(f'DBG send(): {make_readable(s)}')
+        # self.do_debug(f'send(): {make_readable(s)}')
         self.conn.sendall(s.encode())
 
     def readline(self, size=1):
@@ -89,15 +85,15 @@ class CommIf(object):
         try:
             s = self.stream.readline()
             self.last_cmd = s
-            # log(f'DBG Received command: {make_readable(s)}')
+            # self.do_debug(f'Received command: {make_readable(s)}')
             return self.last_cmd
 
         except (ConnectionError, socket.timeout) as e:
-            log(f'DBG Disconnected: {type(e)}')
+            self.do_debug(f'Disconnected: {type(e)}')
             raise
 
         except Exception as e:
-            log(f'DBG CommIf.readline() other exception: {str(e)}')
+            self.do_debug(f'CommIf.readline() other exception: {str(e)}')
             self.buff = ''
             raise
 
@@ -116,15 +112,15 @@ class CommIf(object):
                     # sc.debug(f'DBG Send response: {s}')
                     color = None
 
-                    if _config['use_color']:
-                        if s.startswith('-> '): color = _config['current_line_color']
-                        elif ' ->' in s: color = _config['current_line_color']
-                        elif s.startswith('>> '): color = _config['exception_line_color']
-                        elif '***' in s: color = _config['error_color']
-                        elif 'Error:' in s: color = _config['error_color']
-                        elif s.startswith('> '): color = _config['stack_location_color']
+                    if USE_COLOR:
+                        if s.startswith('-> '): color = CURRENT_LINE_COLOR
+                        elif ' ->' in s: color = CURRENT_LINE_COLOR
+                        elif s.startswith('>> '): color = EXCEPTION_LINE_COLOR
+                        elif '***' in s: color = ERROR_COLOR
+                        elif 'Error:' in s: color = ERROR_COLOR
+                        elif s.startswith('> '): color = STACK_LOCATION_COLOR
 
-                    self.send(f'{s}{_comm_delim}' if color is None else f'\033[{color}m{s}\033[0m{_comm_delim}')
+                    self.send(f'{s}{MDEL}' if color is None else f'\033[{color}m{s}\033[0m{MDEL}')
 
                 self.writePrompt()
 
@@ -135,31 +131,24 @@ class CommIf(object):
                 self.buff += line
 
         except (ConnectionError, socket.timeout) as e:
-            log(f'Disconnected: {type(e)}')
-            # sc.debug(f'Disconnected: {type(e)}')
+            self.do_debug(f'Disconnected: {type(e)}')
             raise
 
         except Exception as e:
-            log(f'CommIf.write() other exception: {str(e)}')
-            # sc.debug(f'CommIf.write() other exception: {str(e)}')
+            self.do_debug(f'CommIf.write() other exception: {str(e)}')
             self.buff = ''
             raise
 
-    def writeInfo(self, line):
-        '''Write internal non-pdb info to client.'''
-        # settings = sublime.load_settings(sc.get_settings_fn())
-        ind = _config['internal_message_ind']
-        self.send(f'{ind} {line}{_comm_delim}')
-        self.writePrompt()
+    def do_debug(self, msg):
+        '''Log only.'''
+        write_log('DBG', msg)
 
     def writePrompt(self):
-        # settings = sublime.load_settings(sc.get_settings_fn())
-        pc = _config['prompt_color']
-        s = f'\033[{pc}m(Pdb)\033[0m ' if _config['use_color'] else '(Pdb)'
+        s = f'\033[{PROMPT_COLOR}m(Pdb)\033[0m ' if USE_COLOR else '(Pdb)'
         self.send(s)
 
 
-#-----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 class SbotPdb(pdb.Pdb):
     '''Run pdb behind a blocking tcp server.'''
 
@@ -169,70 +158,51 @@ class SbotPdb(pdb.Pdb):
             self.sock = None
             self.commif = None
             self.active_instance = None
-            print('>>> 12', _log_fn, _config)
-
-            # settings = sublime.load_settings(sc.get_settings_fn())
-            host = _config['host']
-            port = _config['port']
-            client_connect_timeout = _config['client_connect_timeout']
 
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            if client_connect_timeout > 0:
-                self.sock.settimeout(client_connect_timeout)  # Seconds.
+            if CONNECT_TIMEOUT > 0:
+                self.sock.settimeout(CONNECT_TIMEOUT)  # Seconds.
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-            self.sock.bind((host, port))
-            log(f'Server started on {host}:{port} - waiting for connection.')
-            # sc.info(f'Server started on {host}:{port} - waiting for connection.')
+            self.sock.bind((HOST, PORT))
+            self.do_info(f'Server started on {HOST}:{PORT} - waiting for connection.')
 
             # Blocks until client connect or timeout.
             self.sock.listen(1)
             conn, address = self.sock.accept()
 
             # Connected.
-            log(f'Server accepted connection from {repr(address)}.')
-            # sc.info(f'Server accepted connection from {repr(address)}.')
+            self.do_info(f'Server accepted connection from {repr(address)}.')
             self.commif = CommIf(conn)
             super().__init__(completekey='tab', stdin=self.commif, stdout=self.commif)  # pyright: ignore
             SbotPdb.active_instance = self
 
         except (ConnectionError, socket.timeout) as e:
-            log(f'Connection timed out: {str(e)}')
-            # sc.info(f'Connection timed out: {str(e)}')
-            sublime.message_dialog('Connection timed out, try again')
+            self.do_info(f'Server connection timed out: {str(e)}')
+            sublime.message_dialog('Server connection timed out, try again')
             self.do_quit()
 
         except Exception as e:
-            print('>>> 15', _log_fn, str(e))
-
-            # Other error handler. All are considered fatal. Exit the application. User needs to restart debugger.
-            log(f'{type(e)} {str(e)}')
-            # sc.error(f'{type(e)} {str(e)}', e.__traceback__)
-            if self.commif is not None:
-                self.commif.writeInfo(f'Server exception: {e}')
-            self.do_quit()
+            # Other error handler.
+            self.do_error(e)
 
     def breakpoint(self, frame):
         '''Starts the debugger.'''
-        log('breakpoint() entry')
-        # sc.debug('breakpoint() entry')
+        self.do_debug('breakpoint() entry')
         if self.commif is not None:
             try:
                 # This blocks until user says done.
                 super().set_trace(frame)
 
             except Exception as e:
-                # App exceptions actually go to sys.excepthook so this doesn't really do anything.
-                log(f'{str(e)}')
-                # sc.error(f'{str(e)}', e.__traceback__)
+                # TODO Code under test exceptions actually go to sys.excepthook so this doesn't do anything.
+                self.do_error(e)
 
-        log('breakpoint() exit')
-        # sc.debug('breakpoint() exit')
+        self.do_debug('breakpoint() exit')
         self.do_quit()
 
     def do_quit(self, arg=None):
         '''Stopping debugging, clean up resources, exit application.'''
-        log('Quitting.')
-        # sc.info('Quitting.')
+        self.do_info('Server quitting.')
 
         if self.commif is not None:
             self.commif.close()
@@ -248,30 +218,51 @@ class SbotPdb(pdb.Pdb):
             super().do_quit(arg)
         except:
             pass
-        # log('DBG do_quit() exit')
+            # do_debug('do_quit() exit')
+
+    def do_error(self, e):
+        '''Log, tell, exit. All are considered fatal. Exit the application. User needs to restart debugger.'''
+        write_log('ERR', str(e), e.__traceback__)
+        sys.stdout.write(f'{MSG_IND} Server Error: {e}\n')
+        sys.stdout.flush()
+        self.do_quit()
+
+    def do_info(self, msg):
+        '''Log, tell.'''
+        write_log('INF', msg)
+        sys.stdout.write(f'{MSG_IND} {msg}\n')
+        sys.stdout.flush()
+
+    def do_debug(self, msg):
+        '''Log only.'''
+        write_log('DBG', msg)
+
+    def make_readable(self, s):
+        '''So we can see things like LF, CR, ESC in log.'''
+        s = s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
+        return s
 
 
-#-----------------------------------------------------------------------------------
-def log(msg, tell=True):
-    with open(_log_fn, 'a') as log:
-        time_str = f'{str(datetime.datetime.now())}'[0:-3]
-        out_line = f'{time_str} {msg}'
+#------------------------------------------------------------------------------
+def write_log(level, msg, tb=None):
+    '''Format a standard message with caller info and log it.'''
+    if LOG_FN is None:
+        return
+    frame = sys._getframe(2)
+    time_str = f'{str(datetime.datetime.now())}'[0:-3]
+    with open(LOG_FN, 'a') as log:
+        out_line = f'{time_str} {level} SRV {frame.f_lineno} {msg}'
         log.write(out_line + '\n')
-        if tell:
-            print(msg)
+        if tb is not None:
+            log.write('\n'.join(traceback.format_tb(tb)) + '\n')
+        log.flush()
 
 
-#-----------------------------------------------------------------------------------
-def make_readable(s):
-    '''So we can see things like LF, CR, ESC in log.'''
-    s = s.replace('\n', '_N').replace('\r', '_R').replace('\033', '_E')
-    return s
-
-
-#-----------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def breakpoint():
     '''Opens a remote PDB. See test_sbot_pdb.py.'''
-    print('>>> 20', _log_fn)
-
     spdb = SbotPdb()
     spdb.breakpoint(sys._getframe().f_back)
+
+
+write_log('DBG', 'sbot_pdb module loaded')

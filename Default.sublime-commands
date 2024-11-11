@@ -1,3 +1,0 @@
-[
-    { "caption": "Plugin Pdb: Edit Settings", "command": "edit_settings", "args": { "base_file": "${packages}/SbotPdb/SbotPdb.sublime-settings", "default": "{\n$0\n}\n" } }
-]
