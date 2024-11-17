@@ -194,7 +194,7 @@ class SbotPdb(pdb.Pdb):
                 super().set_trace(frame)
 
             except Exception as e:
-                # TODO1 Code under test exceptions actually go to sys.excepthook so this doesn't do anything.
+                # Exceptions in the code under test go to sys.excepthook so this doesn't do anything.
                 self.do_error(e)
 
         self.do_debug('breakpoint() exit')
