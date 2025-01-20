@@ -4,7 +4,7 @@ import pdb
 import os
 import datetime
 import traceback
-import sublime
+import sublime # don't need
 
 
 #------------------------------------------------------------------------------
