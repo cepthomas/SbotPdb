@@ -4,7 +4,6 @@ import pdb
 import os
 import datetime
 import traceback
-import sublime # don't need
 
 
 #------------------------------------------------------------------------------
@@ -12,7 +11,8 @@ import sublime # don't need
 #------------------------------------------------------------------------------
 
 # Where to log. Usually same as the client log. None indicates no logging.
-LOG_FN = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages', 'User', '_Test', 'ppdb.log')
+LOG_FN = os.path.join(os.path.dirname(__file__), 'ppdb.log')
+
 
 # TCP host.
 HOST = '127.0.0.1'
@@ -106,8 +106,6 @@ class CommIf(object):
             # pdb writes lines piecemeal but we want full proper lines.
             # Easiest is to accumulate in a buffer until we see the prompt then slice and write.
             if '(Pdb)' in line:
-                # settings = sublime.load_settings(sc.get_settings_fn())
-
                 for s in self.buff.splitlines():
                     # sc.debug(f'DBG Send response: {s}')
                     color = None
@@ -177,8 +175,7 @@ class SbotPdb(pdb.Pdb):
             SbotPdb.active_instance = self
 
         except (ConnectionError, socket.timeout) as e:
-            self.do_info(f'Server connection timed out: {str(e)}')
-            sublime.message_dialog('Server connection timed out, try again')
+            self.do_info(f'Server connection timed out, try again: {str(e)}')
             self.do_quit()
 
         except Exception as e:

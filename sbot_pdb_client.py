@@ -13,7 +13,7 @@ import traceback
 #------------------------------------------------------------------------------
 
 # Where to log. Usually same as the server log. None indicates no logging.
-LOG_FN = os.path.join(os.environ['APPDATA'], 'Sublime Text', 'Packages', 'User', '_Test', 'ppdb.log')
+LOG_FN = os.path.join(os.path.dirname(__file__), 'ppdb.log')
 
 # TCP host.
 HOST = '127.0.0.1'
