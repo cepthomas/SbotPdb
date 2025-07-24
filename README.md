@@ -1,7 +1,7 @@
 # Plugin Pdb
 
 Sublime Text plugin for debugging ST plugins using pdb remotely over a tcp
-connection. There are other remote pdb projects but this specifically targets
+connection. There are other remote pdb projects but this specifically supports
 plugin debugging.
 
 There's a fair amount hacked from [remote-db](https://github.com/ionelmc/python-remote-pdb)

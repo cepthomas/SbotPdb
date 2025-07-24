@@ -34,7 +34,7 @@ MDEL = '\n'
 
 #------------------------------------------------------------------------------
 class PdbClient(object):
-    '''The remote pdb cllient.'''
+    '''The remote pdb client.'''
 
     def __init__(self):
         '''Construction.'''
